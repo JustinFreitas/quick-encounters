@@ -534,7 +534,7 @@ export class QuickEncounter {
     static getSceneControlButtons(buttons) {
         if (!game.user.isGM) {return;}
         //Hooked on the left-hand set of buttons; add a Create Quick Encounter one
-        const basicControlsButton = buttons.find(b => b.name === "token");
+        const basicControlsButton = Array.isArray(buttons) ? buttons.find(b => b.name === "token") : buttons["token"];
 
         if (basicControlsButton) {
             basicControlsButton.tools.push({
@@ -548,7 +548,7 @@ export class QuickEncounter {
             });          
         }
 
-        const tileControlsButton = buttons.find(b => b.name === "tiles");
+        const tileControlsButton = Array.isArray(buttons) ? buttons.find(b => b.name === "tiles") : buttons["tiles"];
 
         if (tileControlsButton) {
             tileControlsButton.tools.push({
