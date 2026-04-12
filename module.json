@@ -8,12 +8,12 @@
       "name": "Spetzel"
     }
   ],
-  "version": "12.1.1",
+  "version": "12.1.2",
   "minimumCoreVersion": "10",
-  "compatibleCoreVersion": "12",
+  "compatibleCoreVersion": "14",
   "compatibility": {
     "minimum": "10",
-    "verified": "12"
+    "verified": "14"
   },
   "languages": [
     {

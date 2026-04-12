@@ -520,11 +520,14 @@ export class QuickEncounter {
 
         //0.9.5 Set the QuickEncounter.isFoundryV8Plus variable for different code-paths
         //If v9, then game.data.version will throw a deprecation warning so test for v9 first
-        QuickEncounter.isFoundryV8Plus = (game.data.release?.generation >= 9) || (game.data.version?.startsWith("0.8"));
+        const releaseGeneration = game.release?.generation ?? game.data?.release?.generation;
+        QuickEncounter.isFoundryV8Plus = (releaseGeneration >= 9) || (game.data?.version?.startsWith("0.8"));
         //1.0.3a: For Foundry v10 and 1.1.5b for Foundry 
-        QuickEncounter.isFoundryV10Plus = (game.data.release?.generation >= 10);
+        QuickEncounter.isFoundryV10Plus = (releaseGeneration >= 10);
         //1.2.3d: For Foundry v12
-        QuickEncounter.isFoundryV12Plus = (game.data.release?.generation >= 12);
+        QuickEncounter.isFoundryV12Plus = (releaseGeneration >= 12);
+        //V14 support fallback
+        QuickEncounter.isFoundryV14Plus = (releaseGeneration >= 14);
     }
 
 
