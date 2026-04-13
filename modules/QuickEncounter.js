@@ -533,14 +533,19 @@ export class QuickEncounter {
 
     static getSceneControlButtons(buttons) {
         if (!game.user.isGM) {return;}
-        //Hooked on the left-hand set of buttons; add a Create Quick Encounter one
-        const basicControlsButton = Array.isArray(buttons) ? buttons.find(b => b.name === "token" || b.name === "tokens") : (buttons["token"] || buttons["tokens"]);
+        
+        let basicControlsButton;
+        if (typeof buttons.find === "function") {
+            basicControlsButton = buttons.find(b => b.name === "token" || b.name === "tokens");
+        } else {
+            basicControlsButton = buttons["token"] || buttons["tokens"];
+        }
 
         if (basicControlsButton) {
             basicControlsButton.tools.push({
                 name: "linkEncounter",
                 title: game.i18n.localize("QE.CreateQuickEncounter.BUTTON"),
-                icon: "fas fa-swords",
+                icon: "fa-solid fa-swords",
                 toggle: false,
                 button: true,
                 visible: game.user.isGM,
@@ -548,21 +553,25 @@ export class QuickEncounter {
             });          
         }
 
-        const tileControlsButton = Array.isArray(buttons) ? buttons.find(b => b.name === "tiles" || b.name === "tile") : (buttons["tiles"] || buttons["tile"]);
+        let tileControlsButton;
+        if (typeof buttons.find === "function") {
+            tileControlsButton = buttons.find(b => b.name === "tiles" || b.name === "tile");
+        } else {
+            tileControlsButton = buttons["tiles"] || buttons["tile"];
+        }
 
         if (tileControlsButton) {
             tileControlsButton.tools.push({
                 name: "linkEncounter",
                 title: game.i18n.localize("QE.CreateQuickEncounter.BUTTON"),
                 //1.1.3c Issue 105: Replace raised-fist with crossed-swords to be consistent with CT
-                icon: "fas fa-swords",
+                icon: "fa-solid fa-swords",
                 toggle: false,
                 button: true,
                 visible: game.user.isGM,
                 onClick: event => QuickEncounter.runAddOrCreate(event)
             });
         }
-
 
     }
 
