@@ -1,0 +1,41 @@
+name: Release Creation
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Version
+        id: get_version
+        run: |
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update module.json
+        run: |
+          # Update version and download link in module.json
+          sed -i 's/"version": ".*"/"version": "${{ steps.get_version.outputs.version }}"/' module.json
+          sed -i 's|"download": ".*"|"download": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.tag }}/quick-encounters.zip"|' module.json
+
+      - name: Zip Module
+        run: |
+          zip -r ./quick-encounters.zip . -x ".git/*" ".github/*" ".gitignore" ".gitattributes" ".DS_Store" "TESTING.md" "TODO"
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            module.json
+            quick-encounters.zip
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
