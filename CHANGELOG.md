@@ -1,6 +1,10 @@
 # RELEASE NOTES
 ## 14
 - Initial support for Foundry v14
+### 14.0.3
+- Fixed missing 'Run Quick Encounter' button in Journal Entry pages
+- Ensured companion dialog pops up correctly when opening Quick Encounters
+- Fixed async template rendering in journal hooks
 ### 14.0.2
 - Fixed Token HUD and Journal hooks failing in v14 due to raw HTML element changes
 ### 14.0.1

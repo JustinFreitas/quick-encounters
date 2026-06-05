@@ -1912,7 +1912,7 @@ export class QuickEncounter {
 
         //Build and show the QE Dialog and add to the displayed Journal Entry
         if (quickEncounter) {
-            quickEncounter.displayQEDialog(journalSheet, $html);
+            await quickEncounter.displayQEDialog(journalSheet, $html);
         }
     }
 
@@ -1964,10 +1964,10 @@ export class QuickEncounter {
 
         //Build and show the QE Dialog and add to the displayed Journal Entry
         if (quickEncounter) {
-            quickEncounter.displayQEDialog(journalPageSheet, $html);
+            await quickEncounter.displayQEDialog(journalPageSheet, $html);
         }
-
     }
+
 
     displayQEDialog(journalSheet, html) {
         const qeJournalEntry = journalSheet.object;
@@ -2018,8 +2018,7 @@ export class QuickEncounter {
             qeDialog.render(true);
         }
 
-        const qeJournalEntryIntro = noMapNoteWarning;
-        //qeJournalEntryIntro = await renderTemplate('modules/quick-encounters/templates/qeJournalEntryIntro.html', {totalXPLine, noMapNoteWarning});
+        const qeJournalEntryIntro = await renderTemplate('modules/quick-encounters/templates/qeJournalEntryIntro.html', {totalXPLine, noMapNoteWarning});
 
         $html.find('.editor-content').prepend(qeJournalEntryIntro);
         //If there's an embedded button, then add a listener
