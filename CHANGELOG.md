@@ -1,4 +1,10 @@
 # RELEASE NOTES
+## 14
+- Initial support for Foundry v14
+### 14.0.1
+- Added Token HUD button (right-click token) for easier encounter creation/access
+- Fixed Font Awesome 6 icon compatibility for Foundry v14
+- Integrated GitHub Release automation
 ## 12
 - Supports Foundry v10-12 (drops support for v9)
 - Last planned version

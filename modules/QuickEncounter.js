@@ -545,7 +545,7 @@ export class QuickEncounter {
             basicControlsButton.tools.push({
                 name: "linkEncounter",
                 title: game.i18n.localize("QE.CreateQuickEncounter.BUTTON"),
-                icon: "fa-solid fa-swords",
+                icon: QuickEncounter.isFoundryV14Plus ? "fa-solid fa-hand-fist" : "fa-solid fa-swords",
                 toggle: false,
                 button: true,
                 visible: game.user.isGM,
@@ -565,7 +565,7 @@ export class QuickEncounter {
                 name: "linkEncounter",
                 title: game.i18n.localize("QE.CreateQuickEncounter.BUTTON"),
                 //1.1.3c Issue 105: Replace raised-fist with crossed-swords to be consistent with CT
-                icon: "fa-solid fa-swords",
+                icon: QuickEncounter.isFoundryV14Plus ? "fa-solid fa-hand-fist" : "fa-solid fa-swords",
                 toggle: false,
                 button: true,
                 visible: game.user.isGM,
@@ -573,6 +573,20 @@ export class QuickEncounter {
             });
         }
 
+    }
+
+
+    static onRenderTokenHUD(app, html, data) {
+        if (!game.user.isGM) return;
+        const button = $(`
+            <div class="control-icon" title="${game.i18n.localize("QE.CreateQuickEncounter.BUTTON")}">
+                <i class="fa-solid fa-hand-fist"></i>
+            </div>
+        `);
+        button.click(event => {
+            QuickEncounter.runAddOrCreate(event);
+        });
+        html.find(".right").append(button);
     }
 
     static runAddOrCreate(event, clickedQuickEncounter) {
@@ -1850,7 +1864,7 @@ export class QuickEncounter {
                 label: "QE.JEBorder.ShowQE",
                 class: "showQE",
                 //1.1.3c Issue 105: Replace raised-fist with crossed-swords to be consistent with CT
-                icon: "fas fa-swords",
+                icon: QuickEncounter.isFoundryV14Plus ? "fa-solid fa-hand-fist" : "fas fa-swords",
                 onclick: async ev => {
                     // 1.1.0b: If Foundry v10 then show all QEs 
                     if (QuickEncounter.isFoundryV10Plus) {
@@ -2160,11 +2174,12 @@ Hooks.on('closeJournalPageSheet', async (journalPageSheet, html) => {
 Hooks.on("getJournalSheetHeaderButtons", QuickEncounter.getJournalSheetHeaderButtons);
 Hooks.on("init", QuickEncounter.init);
 Hooks.on('getSceneControlButtons', QuickEncounter.getSceneControlButtons);
+Hooks.on('renderTokenHUD', QuickEncounter.onRenderTokenHUD);
 Hooks.on("deleteCombat", (combat, options, userId) => {
     QuickEncounter.onDeleteCombat(combat, options, userId);
 });
 
 //0.9.1a: (from ironmonk88) Add a QE (crossed swords) control to the command palette for Monk's Enhanced Journal
 Hooks.on("activateControls", (journal, controls) => {
-	controls.push({id: 'quickencounter', text: "Quick Encounter", icon: 'fa-swords', conditional: game.user.isGM, callback: QuickEncounter.runAddOrCreate.bind(journal?.subsheet)});
+	controls.push({id: 'quickencounter', text: "Quick Encounter", icon: QuickEncounter.isFoundryV14Plus ? 'fa-hand-fist' : 'fa-swords', conditional: game.user.isGM, callback: QuickEncounter.runAddOrCreate.bind(journal?.subsheet)});
 });												 
