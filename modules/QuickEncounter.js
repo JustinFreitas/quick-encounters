@@ -578,6 +578,7 @@ export class QuickEncounter {
 
     static onRenderTokenHUD(app, html, data) {
         if (!game.user.isGM) return;
+        const $html = $(html);
         const button = $(`
             <div class="control-icon" title="${game.i18n.localize("QE.CreateQuickEncounter.BUTTON")}">
                 <i class="fa-solid fa-hand-fist"></i>
@@ -586,7 +587,7 @@ export class QuickEncounter {
         button.click(event => {
             QuickEncounter.runAddOrCreate(event);
         });
-        html.find(".right").append(button);
+        $html.find(".right").append(button);
     }
 
     static runAddOrCreate(event, clickedQuickEncounter) {
@@ -1898,10 +1899,11 @@ export class QuickEncounter {
         //1.0.4e: In Foundry v10 we hook on JournalPageSheet (and inherit the Journal setting if present)
         if (!game.user.isGM || QuickEncounter.isFoundryV10Plus) {return;}
 
+        const $html = $(html);
         //v0.5.0 If this could be a Quick Encounter, add the button at the top and the total XP
         //v0.5.3 Remove any existing versions of this first before recomputing it - limit to 5 checks just in case
         for (let iCheck=0; iCheck < 5; iCheck++) {
-            const qeDiv = journalSheet.element.find("#QuickEncounterIntro");
+            const qeDiv = $html.find("#QuickEncounterIntro");
             if (!qeDiv || !qeDiv[0] || !qeDiv[0].parentNode) {break;}
             qeDiv[0].parentNode.removeChild(qeDiv[0]);
         }
@@ -1910,7 +1912,7 @@ export class QuickEncounter {
 
         //Build and show the QE Dialog and add to the displayed Journal Entry
         if (quickEncounter) {
-            quickEncounter.displayQEDialog(journalSheet, html);
+            quickEncounter.displayQEDialog(journalSheet, $html);
         }
     }
 
@@ -1919,6 +1921,7 @@ export class QuickEncounter {
         //Should never get into onRenderJournalPageSheet unless v10 but test anyway
         //1.0.5g: Suppress this hook if this an editor window (because that duplicates the QE, and incorrectly)
         if (!game.user.isGM || journalPageSheet?.isEditable || !QuickEncounter.isFoundryV10Plus) {return;}  
+        const $html = $(html);
         /* 1.0.4e: To handle new (Foundry v10) and pre-multi-page Journals we check:
             1. Is there an embedded Quick Encounter in the Journal Page Sheet
             2. Is there an embedded Quick Encounter in the parent Journal Sheet
@@ -1954,20 +1957,21 @@ export class QuickEncounter {
 
         if (!quickEncounter) {
             //Option 3: Extract a Quick Encounter from embedded Actors
-            const header = html[0];
+            const header = $html[0];
             const parentElement = $(header.parentElement);
             quickEncounter = QuickEncounter.extractQuickEncounterFromEmbedded(journalEntryPage, parentElement);
         }
 
         //Build and show the QE Dialog and add to the displayed Journal Entry
         if (quickEncounter) {
-            quickEncounter.displayQEDialog(journalPageSheet, html);
+            quickEncounter.displayQEDialog(journalPageSheet, $html);
         }
 
     }
 
     displayQEDialog(journalSheet, html) {
         const qeJournalEntry = journalSheet.object;
+        const $html = $(html);
         //0.6.13: If we opened this from a Scene Note, then remember that (because you could move off to another Note)
         //But once the Journal Entry is open we don't reset it, even if subsequently we re-render (e.g. adding another Actor)
         //Allows for .entry to be null (if you deleted the Note by itself)
@@ -2017,9 +2021,9 @@ export class QuickEncounter {
         const qeJournalEntryIntro = noMapNoteWarning;
         //qeJournalEntryIntro = await renderTemplate('modules/quick-encounters/templates/qeJournalEntryIntro.html', {totalXPLine, noMapNoteWarning});
 
-        html.find('.editor-content').prepend(qeJournalEntryIntro);
+        $html.find('.editor-content').prepend(qeJournalEntryIntro);
         //If there's an embedded button, then add a listener
-        html.find('button[name="addToCombatTracker"]').click(event => {
+        $html.find('button[name="addToCombatTracker"]').click(event => {
             this.run(event);
         });
     }
