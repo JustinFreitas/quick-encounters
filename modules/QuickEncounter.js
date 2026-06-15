@@ -2045,6 +2045,24 @@ export class QuickEncounter {
                 quickEncounter.run(event);
             });
         }
+
+        //v14: Also open the QESheet companion popup (combatant list / counts / Run-Add-Save). Cache it on
+        //the page sheet so re-renders reuse the same window; the in-journal button above still runs directly.
+        let qeDialog = app.qeDialog;
+        if (qeDialog) {
+            qeDialog.update(quickEncounter);
+        } else {
+            qeDialog = new QESheet(quickEncounter, {
+                qeJournalEntry: page,                                   //flag/remove() live on the page
+                title: app.title ?? page?.name,
+                isFromCompendium: page?.pack ?? page?.parent?.pack ?? null
+            });
+            app.qeDialog = qeDialog;
+        }
+        if (game.settings.get(QE.MODULE_NAME, "showQEAutomatically") || quickEncounter?.showQEOnce) {
+            delete quickEncounter.showQEOnce;
+            qeDialog.render({force: true});
+        }
     }
 
 
@@ -2247,6 +2265,14 @@ Hooks.on('closeJournalSheet', async (journalSheet, html) => {
 Hooks.on(`renderJournalPageSheet`, QuickEncounter.onRenderJournalPageSheet )
 //v14: ApplicationV2 page sheets fire renderJournalEntryPageSheet (for every page-sheet subtype)
 Hooks.on("renderJournalEntryPageSheet", QuickEncounter.onRenderJournalEntryPageSheetV14)
+//v14: close the cached QESheet companion popup when the page sheet closes
+Hooks.on("closeJournalEntryPageSheet", async (app) => {
+    if (!game.user.isGM) {return;}
+    if (app.qeDialog) {
+        app.qeDialog.close();
+        delete app.qeDialog;
+    }
+})
 //Don't have to worry about Tutorial (deal with that on close Journal Entry)
 Hooks.on('closeJournalPageSheet', async (journalPageSheet, html) => {
     if (!game.user.isGM) {return;}

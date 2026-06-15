@@ -1,84 +1,82 @@
-<form>
-    <div id="QEContainers">
-        {{#unless isFromCompendium}}
-            <header>{{{localize 'QE.QuickEncounterDialog.INTRO'}}}</header>
-        {{else}}
-            <header>{{{localize 'QE.QuickEncounterDialog.INTRO_COMPENDIUM'}}}</header>
-        {{/unless}}
-        <hr>
-        <div class="flexcol">
-            {{#each combatants}}
-                <div class="flexrow">
-                    <div class="actor-container">
-                        <img class="actor-portrait" src="{{this.img}}" title="{{localize 'QE.QuickEncounterDialog.Remove' name=this.actorName}}" id="{{this.rowNum}}" />
-                        <div class="actor-subtract">
-                            <i class="fas fa-minus" title="{{localize 'QE.QuickEncounterDialog.Remove' name=this.actorName}}" id="{{this.rowNum}}"></i>
-                        </div>                            
-                    </div>
-                    <div class="flexcol">
-                        <div class="flexrow vertical-centered">
-                            <input type="text" name="{{this.rowNum}}.numActors" class="num-actors" id="{{this.actorId}}" value={{this.numActors}} {{#if @root/isFromCompendium}}disabled{{/if}}>
-                            x {{this.actorName}} {{this.xp}}
-                            {{#if @root/showAddToCombatTrackerCheckbox}}
-                                &nbsp;&nbsp;<input type="checkbox" name="{{this.rowNum}}.addToCombatTracker" id="{{this.rowNum}}.addToCombatTracker" {{#if this.addToCombatTracker}}checked{{/if}}>
-                                <label for="{{this.rowNum}}.addToCombatTracker">{{localize 'QE.AddToCombatTracker.TITLE'}}</label>
-                            {{/if}}
-                        </div>
-                        {{#unless @root/isFromCompendium}}
-                        <div class="flexrow">
-                            {{#each this.tokens}}
-                                {{#if this.tokenExistsOnScene}}
-                                    <img class="token-portrait" src="{{../img}}" title="{{localize 'QE.QuickEncounterDialog.SCENE_TOKEN'}}" />
-                                {{else}}
-                                    <input type="checkbox" {{#if this.isSavedToken}}{{checked}}{{/if}} disabled>
-                                {{/if}}
-                            {{/each}}
-                        </div>
-                        {{/unless}}
-                    </div>
-                </div>
-            {{/each}}
-            {{#each tilesData}}
-                <div class="flexrow">
-                    <div class="tile-container">
-                        <img class='actor-portrait' title="{{localize 'QE.QuickEncounterDialog.Remove'  name=''}}" src="{{this.texture.src}}" id="{{@index}}"/>
-                        <div class="actor-subtract">
-                            <i class="fas fa-minus" title="{{localize 'QE.QuickEncounterDialog.Remove' name=''}}" id="{{@index}}"></i>
-                        </div>
-                    </div>
-                    <div class="flexrow">
-                        <span>{{this.texture.src}}</span>
-                    </div>
-                </div>
-            {{/each}}
-            {{#each rollTables}}
+<div id="QEContainers">
+    {{#unless isFromCompendium}}
+        <header>{{{localize 'QE.QuickEncounterDialog.INTRO'}}}</header>
+    {{else}}
+        <header>{{{localize 'QE.QuickEncounterDialog.INTRO_COMPENDIUM'}}}</header>
+    {{/unless}}
+    <hr>
+    <div class="flexcol">
+        {{#each combatants}}
             <div class="flexrow">
-                <div class="rolltable-container">
-                    <img class='actor-portrait' title="{{localize 'QE.QuickEncounterDialog.Remove'  name=this.name}}" src="modules\\quick-encounters\\img\\icons8-grid-3-80.png\"
-                        id="{{@index}}" />
+                <div class="actor-container" {{#unless @root/isFromCompendium}}data-action="removeActor" data-row="{{this.rowNum}}"{{/unless}}>
+                    <img class="actor-portrait" src="{{this.img}}" title="{{localize 'QE.QuickEncounterDialog.Remove' name=this.actorName}}" id="{{this.rowNum}}" />
                     <div class="actor-subtract">
-                        <i class="fas fa-minus" title="{{localize 'QE.QuickEncounterDialog.Remove' name=this.name}}" id="{{@index}}"></i>
+                        <i class="fa-solid fa-minus" title="{{localize 'QE.QuickEncounterDialog.Remove' name=this.actorName}}" id="{{this.rowNum}}"></i>
                     </div>
                 </div>
-                <div class="flexrow vertical-centered">
-                    <input type="text" name="{{@index}}.numRollTableActors" class="num-actors" id="{{this.rollTableId}}" value={{this.numActors}}>x {{this.name}}
+                <div class="flexcol">
+                    <div class="flexrow vertical-centered">
+                        <input type="text" name="{{this.rowNum}}.numActors" class="num-actors" id="{{this.actorId}}" value={{this.numActors}} {{#if @root/isFromCompendium}}disabled{{/if}}>
+                        x {{this.actorName}} {{this.xp}}
+                        {{#if @root/showAddToCombatTrackerCheckbox}}
+                            &nbsp;&nbsp;<input type="checkbox" name="{{this.rowNum}}.addToCombatTracker" id="{{this.rowNum}}.addToCombatTracker" {{#if this.addToCombatTracker}}checked{{/if}}>
+                            <label for="{{this.rowNum}}.addToCombatTracker">{{localize 'QE.AddToCombatTracker.TITLE'}}</label>
+                        {{/if}}
+                    </div>
+                    {{#unless @root/isFromCompendium}}
+                    <div class="flexrow">
+                        {{#each this.tokens}}
+                            {{#if this.tokenExistsOnScene}}
+                                <img class="token-portrait" src="{{../img}}" title="{{localize 'QE.QuickEncounterDialog.SCENE_TOKEN'}}" />
+                            {{else}}
+                                <input type="checkbox" {{#if this.isSavedToken}}{{checked}}{{/if}} disabled>
+                            {{/if}}
+                        {{/each}}
+                    </div>
+                    {{/unless}}
                 </div>
             </div>
-            {{/each}}
-        </div>
-        {{{totalXPLine}}}<br>
-        {{#unless isFromCompendium}}
+        {{/each}}
+        {{#each tilesData}}
             <div class="flexrow">
-                <button type="button" name="addToCombatTracker"><i class="fas fa-fist-raised"></i>
-                    {{localize 'QE.QuickEncounterDialog.Run.BUTTON'}}
-                </button>
-                <button type="button" name="addTokensTiles"><i class="fas fa-user-plus"></i>
-                    {{localize 'QE.QuickEncounterDialog.Add.BUTTON'}}
-                </button>
-                <button type="submit" name="save">
-                    {{localize 'QE.QuickEncounterDialog.Save.BUTTON'}}
-                </button>
+                <div class="tile-container" {{#unless @root/isFromCompendium}}data-action="removeTile" data-row="{{@index}}"{{/unless}}>
+                    <img class='actor-portrait' title="{{localize 'QE.QuickEncounterDialog.Remove'  name=''}}" src="{{this.texture.src}}" id="{{@index}}"/>
+                    <div class="actor-subtract">
+                        <i class="fa-solid fa-minus" title="{{localize 'QE.QuickEncounterDialog.Remove' name=''}}" id="{{@index}}"></i>
+                    </div>
+                </div>
+                <div class="flexrow">
+                    <span>{{this.texture.src}}</span>
+                </div>
             </div>
-        {{/unless}}
+        {{/each}}
+        {{#each rollTables}}
+        <div class="flexrow">
+            <div class="rolltable-container" {{#unless @root/isFromCompendium}}data-action="removeRollTable" data-row="{{@index}}"{{/unless}}>
+                <img class='actor-portrait' title="{{localize 'QE.QuickEncounterDialog.Remove'  name=this.name}}" src="modules\\quick-encounters\\img\\icons8-grid-3-80.png\"
+                    id="{{@index}}" />
+                <div class="actor-subtract">
+                    <i class="fa-solid fa-minus" title="{{localize 'QE.QuickEncounterDialog.Remove' name=this.name}}" id="{{@index}}"></i>
+                </div>
+            </div>
+            <div class="flexrow vertical-centered">
+                <input type="text" name="{{@index}}.numRollTableActors" class="num-actors" id="{{this.rollTableId}}" value={{this.numActors}}>x {{this.name}}
+            </div>
+        </div>
+        {{/each}}
     </div>
-</form>
+    {{{totalXPLine}}}<br>
+    {{#unless isFromCompendium}}
+        <div class="flexrow">
+            <button type="button" name="addToCombatTracker" data-action="addToCombatTracker"><i class="fa-solid fa-hand-fist"></i>
+                {{localize 'QE.QuickEncounterDialog.Run.BUTTON'}}
+            </button>
+            <button type="button" name="addTokensTiles" data-action="addTokensTiles"><i class="fa-solid fa-user-plus"></i>
+                {{localize 'QE.QuickEncounterDialog.Add.BUTTON'}}
+            </button>
+            <button type="submit" name="save">
+                {{localize 'QE.QuickEncounterDialog.Save.BUTTON'}}
+            </button>
+        </div>
+    {{/unless}}
+</div>

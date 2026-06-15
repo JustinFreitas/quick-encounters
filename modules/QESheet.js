@@ -3,184 +3,134 @@ import {QuickEncounter, dieRollReg, QE} from './QuickEncounter.js';
 /*
 Reused as EncounterCompanionSheet
 15-Oct-2020     Re-created
-9-Nov-2020      v0.6.1d: Change constructor to take combinedTokenData (will be a template for actor-generated data)
-10-Nov-2020     v0.6.1e: Pass quickEncounter so we can key off extracted Actors not tokens
-                v0.6.1f: Change Close to Cancel in dialog (to show it doesn't save) - use i18n tags
-11-Nov-2020     v0.6.1g: Remove journalSheet from constructor    
-14-Nov-2020     v0.6.1l: If you change the # Actors to 0, remove the Actor completely
-15-Nov-2020     v0.6.1m: Pass event from clicking Run
-                v0.6.1n: If we removed all the Actors, then remove the whole Quick Encounter
-16-Nov-2020     v0.6.3b: Make "number" field a String so we can handle die rolls, a number, and nothing (which means remove the actor)                
-                         Add validation and warning if you make a mistake
-27-Nov-2020     v0.6.7b: Display compendium info in Companion dialog           
-28-Nov-2020     v0.6.8: Use combinedTokensData on each extractedActor; that way we don't have to separate it
-                        (but still have to support the pre-0.6 method where it isn't associated with the actor)       
-                        combatants, updateObject(): Add rowNum to distinguish between same actorId instances
-30-Nov-2020     v0.6.9c: Add get id() so that we get unique identifer for the companion sheet   
-1-Dec-2020      v0.6.10: Move calculation/updating of combatants for display to getData() so it is re-rendered after update  
-                         Remove passing totalXPLine because it has to be updated as you add/remove combatants     
-                v0.6.11: update(): Update to new quickEncounter   
-14-Jan-2021     0.7.0c: REnamed to QESheet       
-16-Jan-2021     0.7.0d: Show a thumbnail of any saved tiles   
-19-Jan-2021     0.7.0f: On hover, show a - and Remove [name] for both Actors and Tiles       
-6-Feb-2021      0.7.3b: Put a Hide QE button on the QE dialog
-15-Mar-2021     0.8.0a: Proper Compendium Support
-                        - See if you can get image info directly from the Compendium index; computeCombatantsForDisplay() now awaits on pack.getIndex
-31-Mar-2021     0.8.0b: If you're looking at a Compendium, pop a read-only QESheet    
-5-Jun-2021      0.8.1a: Fixed: Issue #42: _getHeaderButtons() was incorrectly checking closeButtonIndex to indicate it was found   
-                0.8.1b: _getHeaderButtons() was incorrectly comparing/replacing translated button labels, but apparently they are still in base language at this point                 
-9-Dec-2021      0.9.3c: Add checkbox to QE dialog if showAddToCombatTrackerCheckbox is set (and check it by default)  
-                _updateObject(): Changed format of formData names to rowNum.fieldName to accomodate the possible checkbox
-                TODO: Not currently saving it, even locally - will need to save and then persist  
-14-Dec-2021     0.9.3d: Add addToCombatTracker to combatant data model and persist       
-18-Dec-2021     0.9.4a: When you press "Run Quick Encounter" then submit form first before Running the QE (to capture the Add To CT status)
-29-Aug-2022     1.0.4g: Override the title to the name of the Journal Entry or Journal Page Entry (passed in options)
-                Weren't calling super() correctly; this.object stores the related object for which is the sheet
-31-Aug-2022     1.0.4j: constructor: receive options.qeJournalEntry so we don't need to look it up using journalEntryId (which is trickier now that we have multi-page journals) 
-2-Sep-2022      1.0.5a: activateListeners(): Listen for new [Add] button which allows adding selected tokens or tiles to this QE     
-11-Oct-2022     1.1.0b: _getHeaderButtons(): Don't have a Hide button in Foundry v10 and leave the button saying Close (as a replacement) - see Issue #108 for why
-20-Oct-2022     1.1.0e: Issue #116: QEs with embedded Compendium Entries don't run (added split off of trailing ID)
-2-Nov-2022      1.1.1d: Issue #40: Minimal implementation of RollTables - display the RollTable, add support for removing
-14-Nov-2022     1.1.1g: _updateObject(), _onChange(): Check for rollTable changes (e.g. changing number to die roll)
-29-May-2023     1.1.5b: Changed isFoundryV10Plus to isFoundryV10PlusPlus (to support checks for Foundry V11)  
-15-Nov-2023     1.2.2a: Fixed #137: Support more generalized dice rolls by changing dieRollReg check to Roll.validate() in _updateObject()
-21-May-2023     1.2.3c: computeCombatantsForDisplay() calls await generateTemplateExtractedActorTokenData() (because that is now async)
+...(history trimmed; see git log)...
 17-Jun-2024     12.1.0b: In v12, convert mergeObject to foundry.util.mergeObject
+14-Jun-2026     14.0.7: Migrated to ApplicationV2 (HandlebarsApplicationMixin) for Foundry v14. The popup
+                wraps a plain QuickEncounter object (not a Document), so it extends ApplicationV2 directly.
+                v10-v13 FormApplication support for this companion popup is dropped (v14-only).
 */
 
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-export class QESheet extends FormApplication {
+export class QESheet extends HandlebarsApplicationMixin(ApplicationV2) {
     constructor(quickEncounter, options = {}) {
-        //1.0.4g: This call has always been wrong; was being called as super(options)
-        super(quickEncounter, options); //sets this.object
+        super(options);             //ApplicationV2 takes only options; custom keys (title, qeJournalEntry, isFromCompendium) are preserved on this.options
+        this.object = quickEncounter;
         if (!game.user.isGM || !quickEncounter) {return;}
-
-        game.users.apps.push(this)
+        game.users.apps.push(this);
     }
 
-    /** @override */
-//FIXME: Probably would be better to reference the Journal Entry this is for    
-	get id() {
-	    return `${QE.MODULE_NAME}-${this.appId}`;
-    }
-
-    /** @override */
-    //1.0.4g: Override the title to the name of the JE Page (especially important when we are displaying in flow mode)
+    /** @override - the title (Journal Entry/Page name) is passed in via options */
     get title() {
-        return this.options?.title;
+        return this.options?.title ?? game.i18n.localize("QE.QuickEncounterDialog.Run.BUTTON");
     }
 
+    //Reuse the same instance for re-renders (the journal handler caches us and calls update())
     update(quickEncounter) {
         if (quickEncounter) this.object = quickEncounter;
     }
 
-    /** @override  */
-    //WARNING: Do not add submitOnClose=true because that will create a submit loop
-    static get defaultOptions() {
-        let mergedObject;
-        if (QuickEncounter.isFoundryV12Plus) {
-            mergedObject = foundry.utils.mergeObject(super.defaultOptions, {
-                //no longer setting id here because it gives the same element all the time- override get id() so we can have multiple QE JEs open
-                template : "modules/quick-encounters/templates/qe-sheet.html",
-                closeOnSubmit : false,
-                submitOnClose : false,
-                popOut : true,
-                width : 530,
-                height : "auto"
-            }); 
-        } else {
-            mergedObject = mergeObject(super.defaultOptions, {
-                //no longer setting id here because it gives the same element all the time- override get id() so we can have multiple QE JEs open
-                template : "modules/quick-encounters/templates/qe-sheet.html",
-                closeOnSubmit : false,
-                submitOnClose : false,
-                popOut : true,
-                width : 530,
-                height : "auto"
-            }); 
+    static DEFAULT_OPTIONS = {
+        //{id} is auto-uniquified per instance so multiple QE journals can each have their own popup
+        id: "quick-encounters-qesheet-{id}",
+        tag: "form",
+        classes: ["quick-encounters", "qe-sheet"],
+        window: {
+            title: "QE.QuickEncounterDialog.Run.BUTTON"
+        },
+        position: {
+            width: 530,
+            height: "auto"
+        },
+        form: {
+            handler: QESheet.#onSubmitForm,
+            submitOnChange: false,
+            closeOnSubmit: false
+        },
+        actions: {
+            addToCombatTracker: QESheet.#onRun,
+            addTokensTiles: QESheet.#onAddTokensTiles,
+            removeActor: QESheet.#onRemoveActor,
+            removeTile: QESheet.#onRemoveTile,
+            removeRollTable: QESheet.#onRemoveRollTable
         }
-        return mergedObject;
-    }
+    };
 
+    static PARTS = {
+        body: { template: "modules/quick-encounters/templates/qe-sheet.html" }
+    };
 
-    /** @override */
-    async _render(force, options={}) {
-        return super._render(force, options);
-    }
-
-    /** @override */
-    _getHeaderButtons() {
-        let buttons = super._getHeaderButtons();
-        let closeButtonIndex = buttons.findIndex(button => button.label === "Close");
-        // 1.1.0b: Don't have a Hide button in Foundry v10 and leave the button saying Close (as a replacement) - see Issue #108 for why
-        if (QuickEncounter.isFoundryV10Plus) {return buttons;}
-
-        //0.8.1: Issue #42: closeButtonIndex==-1 if not found
-        if ((closeButtonIndex ?? -1) !== -1) {
-            buttons[closeButtonIndex].label = "Cancel";
-        }
-        //0.7.3b: Add a Hide QE button in case you don't want to see this particular one
-        buttons.unshift({
-            label: "QE.JEBorder.HideQE",
-            class: "hideQE",
-            icon: "fas fa-fist-raised",
-            onclick: async ev => {
-                //Toggle the default to not show from now on (you'll have to click the Show button in the JE)
-                this.object.hideQE = true;
-                this.object.serializeIntoJournalEntry();
-                this.close();
-            }
-        });
-        return buttons;
-    }
-
-    /** @override */
-    activateListeners(html) {
-        super.activateListeners(html);
-        if (!this.object?.isFromCompendium) {
-            html.find('button[name="addToCombatTracker"]').click(event => {
-                // FIX: Need to submit the form first and then run; await this.submit({preventClose: true})
-                this.submit({preventClose: true}).then(this.object?.run(event));
-            });
-            //0.7.0: Listeners for when you click "-" (minus)" in actor or tile
-            html.find("#QEContainers .actor-container").each((i, thumbnail) => {
-                //thumbnail.setAttribute("draggable", true);
-                //thumbnail.addEventListener("dragstart", this._onDragStart, false);
-                thumbnail.addEventListener("click", this._onClickActor.bind(this));
-            });
-            html.find("#QEContainers .tile-container").each((i, thumbnail) => {
-                //thumbnail.setAttribute("draggable", true);
-                //thumbnail.addEventListener("dragstart", this._onDragStart, false);
-                thumbnail.addEventListener("click", this._onClickTile.bind(this));
-            });
-            html.find("#QEContainers .rolltable-container").each((i, thumbnail) => {
-                thumbnail.addEventListener("click", this._onClickRollTable.bind(this));
-            });
-        }
-        html.find('button[name="addTokensTiles"]').click(event => {
-            this.submit({preventClose: true}).then(QuickEncounter.runAddOrCreate(event, this.object));
-        });
-    }
-
-
-
-
-    /** @override */
-    async getData() {
-        //v0.6.10: Because the qeDialog is not (now) being re-created each time, instead we have to recompute combatants here
+    /** @override - replaces getData() */
+    async _prepareContext(options) {
+        //v0.6.10: Because the qeDialog is not (now) being re-created each time, recompute combatants here
         await this.computeCombatantsForDisplay();
-
-        //We don't have to store totalXPLine, but this.combatants needs to be referenced in _updateData()
         return {
-           combatants: this.combatants,
-           tilesData: this.object?.savedTilesData,
-           rollTables: this.object?.rollTables,
-           totalXPLine : this.totalXPLine,
-           isFromCompendium : this.object?.isFromCompendium,    //FIX: This setting should be on a combatant basis, not one
-           //0.9.3 Setting to show this checkbox (checked by default)
-           showAddToCombatTrackerCheckbox : game.settings.get(QE.MODULE_NAME, "showAddToCombatTrackerCheckbox")
+            combatants: this.combatants,
+            tilesData: this.object?.savedTilesData,
+            rollTables: this.object?.rollTables,
+            totalXPLine: this.totalXPLine,
+            isFromCompendium: this.object?.isFromCompendium,
+            //0.9.3 Setting to show this checkbox (checked by default)
+            showAddToCombatTrackerCheckbox: game.settings.get(QE.MODULE_NAME, "showAddToCombatTrackerCheckbox")
         };
     }
+
+    /* -------------------------------------------- */
+    /*  Action handlers (data-action; this = instance)                                              */
+    /* -------------------------------------------- */
+
+    //"Run Quick Encounter": save any edits first, then run (place tokens + add to Combat Tracker)
+    static async #onRun(event, target) {
+        if (this.object?.isFromCompendium) {return;}
+        await this.submit();
+        await this.object?.run(event);
+    }
+
+    //"Add tokens/tiles": save edits then add the selected canvas tokens/tiles to this QE
+    static async #onAddTokensTiles(event, target) {
+        await this.submit();
+        await QuickEncounter.runAddOrCreate(event, this.object);
+    }
+
+    static #onRemoveActor(event, target) {
+        return this._removeActorRow(target);
+    }
+    static #onRemoveTile(event, target) {
+        return this._removeTileRow(target);
+    }
+    static #onRemoveRollTable(event, target) {
+        return this._removeRollTableRow(target);
+    }
+
+    /* -------------------------------------------- */
+    /*  Row removal helpers                                                                          */
+    /* -------------------------------------------- */
+
+    _removeActorRow(target) {
+        const rowNum = Number(target?.dataset?.row);
+        if (Number.isInteger(rowNum) && (rowNum >= 0) && (rowNum < this.combatants.length)) {
+            this.combatants.splice(rowNum, 1);
+        }
+        return this._onChange();
+    }
+    _removeTileRow(target) {
+        const rowNum = Number(target?.dataset?.row);
+        if (Number.isInteger(rowNum) && (rowNum >= 0) && (rowNum < (this.object?.savedTilesData?.length ?? 0))) {
+            this.object.savedTilesData.splice(rowNum, 1);
+        }
+        return this._onChange();
+    }
+    _removeRollTableRow(target) {
+        const rowNum = Number(target?.dataset?.row);
+        if (Number.isInteger(rowNum) && (rowNum >= 0) && (rowNum < (this.object?.rollTables?.length ?? 0))) {
+            this.object.rollTables.splice(rowNum, 1);
+        }
+        return this._onChange();
+    }
+
+    /* -------------------------------------------- */
+    /*  Data prep (version-agnostic)                                                                */
+    /* -------------------------------------------- */
 
     async computeCombatantsForDisplay() {
         //This version of the Quick Encounter is what is extracted from in the Journal Entry
@@ -203,11 +153,10 @@ export class QESheet extends FormApplication {
                     numType : typeof eActor.numActors
                 }
 
-                if (eActor.dataPackName) {   
+                if (eActor.dataPackName) {
                     //Compendium: for display just use the index (can only get name, id, index)
                     const pack = game.packs.get(eActor.dataPackName);
                     //0.8.0a: Block on getting the name and image information, fortunately from the index
-                    //FIXME: Probably could be improved by getting all the indexes in one group so not doing this multiple times for the same index
                     const index = await pack.getIndex();
                     //1.1.0e: In Foundry v10 may need to strip off prepended Compendium name
                     const strippedActorId = (combatant.actorId).split(".").pop();
@@ -232,10 +181,20 @@ export class QESheet extends FormApplication {
         this.totalXPLine = this.object.renderTotalXPLine();
     }
 
-    /** @override */
-    async _updateObject(event, formData) {
-        const checkIntReg = /^[0-9]*$/;   
-        //Capture changes in the number of Actors or new Actors added (currently not possible through this dialog)
+    /* -------------------------------------------- */
+    /*  Form submission                                                                             */
+    /* -------------------------------------------- */
+
+    /** @override - the form handler (replaces _updateObject) */
+    static async #onSubmitForm(event, form, formData) {
+        //ApplicationV2 gives a FormDataExtended; flatten back to the "rowNum.fieldName" keys the logic expects
+        const flat = foundry.utils.flattenObject(foundry.utils.expandObject(formData.object));
+        return this._applyFormData(flat);
+    }
+
+    //formData keyed "rowNum.fieldName" (numActors / numRollTableActors / addToCombatTracker)
+    async _applyFormData(formData) {
+        const checkIntReg = /^[0-9]*$/;
         let wasChanged = false;
         //0.9.3: Changed format of formData names to rowNum.fieldName
         for (let [rowFieldName, fieldValue] of Object.entries(formData)) {
@@ -305,7 +264,7 @@ export class QESheet extends FormApplication {
 //TODO: Capture tokens removed
     }
 
-    //0.7.0 Split off changed check so that we can call it from the clicking the - on an Actor or Tile
+    //0.7.0 Split off changed check so that we can call it from clicking the - on an Actor or Tile
     async _onChange() {
         //Reconstitute extractedActors and update it, removing those with numActors=0
         //Accept any non-numeric; blank has been replaced with 0
@@ -315,19 +274,17 @@ export class QESheet extends FormApplication {
                 dataPackName : c.dataPackName, //if non-null then this is a Compendium reference
                 actorID : c.actorId,           //If Compendium sometimes this is the reference
                 name : c.actorName,
-                addToCombatTracker : c.addToCombatTracker,  //remembered checked/cleared setting (will only display if overall setting shows the dialog box)
+                addToCombatTracker : c.addToCombatTracker,  //remembered checked/cleared setting
                 savedTokensData : c.tokens.filter(td => td.isSavedToken)
             }
         });
         //0.6.1o: The saved tokens for a removed ExtractedActor will now be discarded also
 
-        //1.1.1: Check for changes in RollTables
-        //We updated directly above so the only additional check would be to remove entries if they are zeroed out
-
-
-        //If we removed all the Actors and (0.7.0) all the Tiles and (1.1.1) all the RollTables, then remove the whole Quick Encounter
+        //If we removed all the Actors and (0.7.0) all the Tiles and (1.1.1) all the RollTables, remove the whole QE
         if (extractedActors.length || this.object?.savedTilesData?.length || this.object?.rollTables?.length) {
             this.object?.update({extractedActors : extractedActors});
+            //Re-render so the displayed rows reflect the change
+            this.render();
         } else {
             //1.0.4j: Pass qeJournalEntry so we don't have to look it up via ID
             this.object?.remove(this.options.qeJournalEntry);
@@ -336,57 +293,4 @@ export class QESheet extends FormApplication {
         }
     }
 
-    _onClickActor(event) {
-        event.stopPropagation();
-
-        const srcClass = event.srcElement.classList.value;
-        const isPortrait = srcClass === "actor-portrait";
-        const isHoverIcon = (srcClass === "actor-subtract") || (srcClass === "fas fa-minus");
-        if ((isPortrait) || (isHoverIcon)) {
-            const rowNum = event.srcElement.id;
-
-            //Handle this by clearing the appropriate combatant field and re-rendering
-            if ((rowNum >= 0) && (rowNum < this.combatants.length)) {
-                this.combatants.splice(rowNum,1);
-            }
-            this._onChange();
-        }
-    }
-    _onClickTile(event) {
-        event.stopPropagation();
-
-        const srcClass = event.srcElement.classList.value;
-        const isPortrait = srcClass === "actor-portrait";
-        const isHoverIcon = (srcClass === "actor-subtract") || (srcClass === "fas fa-minus");
-        if ((isPortrait) || (isHoverIcon)) {
-            const rowNum = event.srcElement.id;
-
-            //Handle this by clearing the appropriate combatant field and re-rendering
-            if ((rowNum >= 0) && (rowNum < this.object?.savedTilesData.length)) {
-                this.object.savedTilesData.splice(rowNum,1);
-            }
-            this._onChange();
-        }
-            
-    }
-    _onClickRollTable(event) {
-        event.stopPropagation();
-
-        const srcClass = event.srcElement.classList.value;
-        const isPortrait = srcClass === "actor-portrait";
-        const isHoverIcon = (srcClass === "actor-subtract") || (srcClass === "fas fa-minus");
-        if ((isPortrait) || (isHoverIcon)) {
-            const rowNum = event.srcElement.id;
-
-            //Handle this by clearing the appropriate combatant field and re-rendering
-            if ((rowNum >= 0) && (rowNum < this.object?.rollTables.length)) {
-                this.object.rollTables.splice(rowNum,1);
-            }
-            this._onChange();
-        }
-            
-    }
-
-}//end class QESHeet
-
-
+}//end class QESheet

@@ -1,6 +1,9 @@
 # RELEASE NOTES
 ## 14
 - Initial support for Foundry v14
+### 14.0.7
+- Restored the QESheet companion popup (combatant list, counts, per-row checkboxes, tiles/rolltables, and the Run / Add tokens-tiles / Update buttons) on Foundry v14 by migrating it from the deprecated v1 FormApplication to ApplicationV2. It is opened/cached/closed from the v14 journal-page render/close hooks. (v14-only; the v10-v13 FormApplication path for this popup is dropped.)
+- Updated the popup template to ApplicationV2 conventions (form-tag root, `data-action` buttons, Font Awesome 6 icons) and replaced the brittle row-removal click detection with `data-action`/`data-row`.
 ### 14.0.6
 - Restored the in-journal "Run Quick Encounter" button on Foundry v14. The old code injected it from the pre-v13 `renderJournalPageSheet` hook using jQuery and `app.object`, which no longer fire/work for v14's ApplicationV2 journals. A new `renderJournalEntryPageSheet` handler now injects the button (and total-XP line) into the page's native element and runs the encounter on click.
 - Fixed creating a default Map Note throwing on v14 (`canvas.stage.hitArea` is null) by using `canvas.dimensions.rect` for the in-bounds check. This also fixes the no-Map-Note path of the double-click run trigger.
