@@ -533,46 +533,49 @@ export class QuickEncounter {
 
     static getSceneControlButtons(buttons) {
         if (!game.user.isGM) {return;}
-        
-        let basicControlsButton;
-        if (typeof buttons.find === "function") {
-            basicControlsButton = buttons.find(b => b.name === "token" || b.name === "tokens");
-        } else {
-            basicControlsButton = buttons["token"] || buttons["tokens"];
-        }
 
-        if (basicControlsButton) {
-            basicControlsButton.tools.push({
+        // v12 passes an array of controls whose `.tools` is also an array.
+        // v13+ passes an object keyed by control name whose `.tools` is also
+        // an object keyed by tool name, requires an `order`, and uses
+        // `onChange` instead of `onClick`. Detect and add the tool the right
+        // way for each layout.
+        const controlsIsArray = typeof buttons.find === "function";
+
+        const findControl = (...names) => {
+            if (controlsIsArray) {
+                return buttons.find(b => names.includes(b.name));
+            }
+            for (const name of names) {
+                if (buttons[name]) {return buttons[name];}
+            }
+            return undefined;
+        };
+
+        const addLinkEncounterTool = (control) => {
+            if (!control) {return;}
+            //1.1.3c Issue 105: Replace raised-fist with crossed-swords to be consistent with CT
+            const tool = {
                 name: "linkEncounter",
                 title: game.i18n.localize("QE.CreateQuickEncounter.BUTTON"),
                 icon: QuickEncounter.isFoundryV14Plus ? "fa-solid fa-hand-fist" : "fa-solid fa-swords",
                 toggle: false,
                 button: true,
-                visible: game.user.isGM,
-                onClick: event => QuickEncounter.runAddOrCreate(event)
-            });          
-        }
+                visible: game.user.isGM
+            };
+            if (Array.isArray(control.tools)) {
+                // v12: tools is an array, callback is onClick
+                tool.onClick = event => QuickEncounter.runAddOrCreate(event);
+                control.tools.push(tool);
+            } else {
+                // v13+: tools is an object keyed by name, ordered, callback is onChange
+                tool.order = Object.keys(control.tools).length;
+                tool.onChange = (event) => QuickEncounter.runAddOrCreate(event);
+                control.tools[tool.name] = tool;
+            }
+        };
 
-        let tileControlsButton;
-        if (typeof buttons.find === "function") {
-            tileControlsButton = buttons.find(b => b.name === "tiles" || b.name === "tile");
-        } else {
-            tileControlsButton = buttons["tiles"] || buttons["tile"];
-        }
-
-        if (tileControlsButton) {
-            tileControlsButton.tools.push({
-                name: "linkEncounter",
-                title: game.i18n.localize("QE.CreateQuickEncounter.BUTTON"),
-                //1.1.3c Issue 105: Replace raised-fist with crossed-swords to be consistent with CT
-                icon: QuickEncounter.isFoundryV14Plus ? "fa-solid fa-hand-fist" : "fa-solid fa-swords",
-                toggle: false,
-                button: true,
-                visible: game.user.isGM,
-                onClick: event => QuickEncounter.runAddOrCreate(event)
-            });
-        }
-
+        addLinkEncounterTool(findControl("token", "tokens"));
+        addLinkEncounterTool(findControl("tiles", "tile"));
     }
 
 

@@ -1,6 +1,9 @@
 # RELEASE NOTES
 ## 14
 - Initial support for Foundry v14
+### 14.0.4
+- Fixed the scene-control toolbar button (crossed-swords / raised-fist) not appearing in Foundry v13/v14, which made the module impossible to invoke from the canvas. The `getSceneControlButtons` hook now adds its tool correctly to v13+'s object-keyed `tools` (with `order` and `onChange`) while still supporting v12's array form.
+- Pointed the manifest/url at the JustinFreitas fork so Foundry's update check resolves the correct releases.
 ### 14.0.3
 - Fixed missing 'Run Quick Encounter' button in Journal Entry pages
 - Ensured companion dialog pops up correctly when opening Quick Encounters
