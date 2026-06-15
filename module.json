@@ -8,7 +8,7 @@
       "name": "Spetzel"
     }
   ],
-  "version": "14.0.4",
+  "version": "14.0.5",
   "minimumCoreVersion": "10",
   "compatibleCoreVersion": "14",
   "compatibility": {
@@ -45,6 +45,14 @@
   "esmodules" : ["modules/QuickEncounter.js","modules/EncounterNote.js","modules/QESheet.js"
   ],
   "styles": ["css/quick-encounters.css"],
+  "relationships": {
+    "requires": [
+      {
+        "id": "lib-wrapper",
+        "type": "module"
+      }
+    ]
+  },
   "readme": "https://github.com/spetzel2020/quick-encounters/blob/master/README.md",
   "allowBugReporter": true,
   "bugs": "https://github.com/spetzel2020/quick-encounters/issues",

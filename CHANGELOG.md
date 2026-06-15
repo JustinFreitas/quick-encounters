@@ -1,6 +1,12 @@
 # RELEASE NOTES
 ## 14
 - Initial support for Foundry v14
+### 14.0.5
+- Fixed the module failing to load on Foundry v13/v14: `class Dialog3 extends Dialog` threw at import time because the global `Dialog` was removed (now resolved from `foundry.appv1.api.Dialog`), which had been aborting the whole module and preventing all of its hooks (including the toolbar button) from registering.
+- Fixed an `await` in the non-`async` `displayQEDialog`, a syntax error that also blocked the module from loading.
+- Replaced the four bare `Dialog`/`Dialog.confirm` runtime calls with the version-resolved dialog class so the encounter dialogs work on v13/v14.
+- Added a v14 run path: double-clicking a Quick Encounter Map Note now runs the encounter (places tokens + adds to the Combat Tracker), since the in-journal "Run Quick Encounter" button does not render on v14's ApplicationV2 journals. Implemented via a libWrapper on `Note#_onClickLeft2`; non-Quick-Encounter notes keep their default behaviour.
+- Declared lib-wrapper as a required dependency.
 ### 14.0.4
 - Fixed the scene-control toolbar button (crossed-swords / raised-fist) not appearing in Foundry v13/v14, which made the module impossible to invoke from the canvas. The `getSceneControlButtons` hook now adds its tool correctly to v13+'s object-keyed `tools` (with `order` and `onChange`) while still supporting v12's array form.
 - Pointed the manifest/url at the JustinFreitas fork so Foundry's update check resolves the correct releases.

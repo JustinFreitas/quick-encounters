@@ -593,6 +593,34 @@ export class QuickEncounter {
         $html.find(".right").append(button);
     }
 
+    //v14 (Option 3 run path): The in-journal "Run Quick Encounter" button relies on the pre-v13
+    //JournalSheet hooks/jQuery DOM which don't fire for v14's ApplicationV2 journals. Instead we run
+    //a Quick Encounter directly when its Map Note is double-clicked (see the libWrapper on
+    //Note#_onClickLeft2 at the bottom of this file). Given a clicked Note placeable, returns the
+    //associated QuickEncounter if it has one, else null.
+    static quickEncounterFromNote(note) {
+        if (!note) {return null;}
+        //In v10+ the QE is serialized into the specific JournalEntryPage the Note points at
+        //(note.page), so check that first. Fall back to the JournalEntry and its pages for
+        //older single-page journals.
+        const candidates = [];
+        if (note.page) {candidates.push(note.page);}
+        const entry = note.entry ?? note.page?.parent ?? note.document?.entry;
+        if (entry) {
+            candidates.push(entry);
+            if (entry.pages) {candidates.push(...entry.pages);}
+        }
+        for (const doc of candidates) {
+            const qe = QuickEncounter.deserializeFromJournalEntry(doc);
+            if (qe?.journalEntry) {
+                //Remember which Note was clicked so run() places tokens around the correct position
+                qe.journalEntry.clickedNote = note;
+                return qe;
+            }
+        }
+        return null;
+    }
+
     static runAddOrCreate(event, clickedQuickEncounter) {
         //Will only have a clickedQuickEncounter when called from the QE dialog with the [Add tokens/tiles] button
         let FRIENDLY_TOKEN_DISPOSITIONS;
@@ -681,7 +709,7 @@ export class QuickEncounter {
                 });
             } else if (controlledFriendlyTokens?.length) {
                 //Check whether you meant to add friendly tokens
-                Dialog.confirm({
+                BaseDialog.confirm({
                   title: game.i18n.localize("QE.IncludeFriendlies.TITLE"),
                   content: game.i18n.localize("QE.IncludeFriendlies.CONTENT"),
                   yes: () => {QuickEncounter.createFrom(controlledAssets)},
@@ -1972,7 +2000,7 @@ export class QuickEncounter {
     }
 
 
-    displayQEDialog(journalSheet, html) {
+    async displayQEDialog(journalSheet, html) {
         const qeJournalEntry = journalSheet.object;
         const $html = $(html);
         //0.6.13: If we opened this from a Scene Note, then remember that (because you could move off to another Note)
@@ -2033,7 +2061,13 @@ export class QuickEncounter {
 
 }
 
-export class Dialog3 extends Dialog {
+// v13+ removed the bare global `Dialog`; the legacy v1 class now lives at
+// foundry.appv1.api.Dialog. Resolve whichever exists at load time so the
+// `extends` below doesn't throw "Class extends value undefined" during import
+// (which would abort this whole module and stop all of its hooks registering).
+export const BaseDialog = (typeof Dialog !== "undefined" && Dialog) || foundry?.appv1?.api?.Dialog;
+
+export class Dialog3 extends BaseDialog {
     //1.0.2: Pass the event through to the button callback
     static async buttons3({title, content, button1cb, button2cb, button3cb, buttonLabels, options={}}) {
         //Also can function as a generic 2-button dialog by passing button3b=null
@@ -2188,4 +2222,22 @@ Hooks.on("deleteCombat", (combat, options, userId) => {
 //0.9.1a: (from ironmonk88) Add a QE (crossed swords) control to the command palette for Monk's Enhanced Journal
 Hooks.on("activateControls", (journal, controls) => {
 	controls.push({id: 'quickencounter', text: "Quick Encounter", icon: QuickEncounter.isFoundryV14Plus ? 'fa-hand-fist' : 'fa-swords', conditional: game.user.isGM, callback: QuickEncounter.runAddOrCreate.bind(journal?.subsheet)});
-});												 
+});
+
+//v14 run trigger: double-clicking a Quick Encounter Map Note runs the encounter (places tokens +
+//adds to the Combat Tracker), instead of opening the v14 ApplicationV2 journal whose in-sheet
+//"Run Quick Encounter" button no longer renders. Non-QE notes keep their default behaviour.
+//Registered in "setup" so libWrapper (a required dependency) is available.
+Hooks.once("setup", () => {
+    const NoteClass = CONFIG?.Note?.objectClass;
+    if (!globalThis.libWrapper || !NoteClass?.prototype?._onClickLeft2) {return;}
+    libWrapper.register("quick-encounters", "CONFIG.Note.objectClass.prototype._onClickLeft2", function (wrapped, ...args) {
+        if (game.user.isGM) {
+            const quickEncounter = QuickEncounter.quickEncounterFromNote(this);
+            if (quickEncounter) {
+                return quickEncounter.run(args[0]);
+            }
+        }
+        return wrapped(...args);
+    }, "MIXED");
+});

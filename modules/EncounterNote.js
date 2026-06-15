@@ -1,4 +1,4 @@
-import {QuickEncounter, QE, Dialog3} from './QuickEncounter.js';
+import {QuickEncounter, QE, Dialog3, BaseDialog} from './QuickEncounter.js';
 /*
 Extend the placeable Map Note - select the desired tokens and then tap the Quick Encounters button
 Subsequently can add: (a) Drag additional tokens in, (b) populate the Combat Tracker when you open the note?
@@ -191,7 +191,7 @@ export class EncounterNote {
 
     static dialogPrompt({title, content, label, callback}={}, options={}) {
         return new Promise(resolve => {
-          const dialog = new Dialog({
+          const dialog = new BaseDialog({
             title: title,
             content: content,
             buttons: {
@@ -283,7 +283,7 @@ export class EncounterNote {
 
     //1.0.2c: Changed to sync operation (only called if there is no map note when you run)
     static noMapNoteDialog(quickEncounter, event, options) {
-        Dialog.confirm({
+        BaseDialog.confirm({
             title: game.i18n.localize("QE.NoMapNote.TITLE"),
             content : game.i18n.localize("QE.NoMapNote.CONTENT"),
             yes : () => {
@@ -326,7 +326,7 @@ export class EncounterNote {
         } else {
             content = game.i18n.localize("QE.SwitchScene.CONTENT") + qeScene.name + "?";
         }
-        await Dialog.confirm({
+        await BaseDialog.confirm({
             title: game.i18n.localize("QE.SwitchScene.TITLE"),
             content : content,
             //0.5.0 Need the Yes response to wait until we are in the correct scene (so don't make it async)
