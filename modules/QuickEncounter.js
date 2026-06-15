@@ -1951,7 +1951,9 @@ export class QuickEncounter {
     static async onRenderJournalPageSheet(journalPageSheet, html) {
         //Should never get into onRenderJournalPageSheet unless v10 but test anyway
         //1.0.5g: Suppress this hook if this an editor window (because that duplicates the QE, and incorrectly)
-        if (!game.user.isGM || journalPageSheet?.isEditable || !QuickEncounter.isFoundryV10Plus) {return;}  
+        if (!game.user.isGM || journalPageSheet?.isEditable || !QuickEncounter.isFoundryV10Plus) {return;}
+        //v14: ApplicationV2 journals use onRenderJournalEntryPageSheetV14 instead; don't also inject here.
+        if (QuickEncounter.isFoundryV14Plus) {return;}
         const $html = $(html);
         /* 1.0.4e: To handle new (Foundry v10) and pre-multi-page Journals we check:
             1. Is there an embedded Quick Encounter in the Journal Page Sheet
@@ -1996,6 +1998,52 @@ export class QuickEncounter {
         //Build and show the QE Dialog and add to the displayed Journal Entry
         if (quickEncounter) {
             await quickEncounter.displayQEDialog(journalPageSheet, $html);
+        }
+    }
+
+    //v14: The journal is ApplicationV2, so the legacy renderJournalPageSheet hook/jQuery DOM no longer
+    //fires. Each page sheet renders via JournalEntrySheet#_renderPageView, so we hook the base render
+    //hook (renderJournalEntryPageSheet fires for every page-sheet subtype) and inject the "Run Quick
+    //Encounter" button into the page's native HTMLElement. This restores the in-journal run button
+    //without migrating the QESheet companion dialog (clicking runs the encounter directly).
+    static async onRenderJournalEntryPageSheetV14(app, element, context, options) {
+        if (!QuickEncounter.isFoundryV14Plus || !game.user?.isGM || !element) {return;}
+
+        //In v14 app.document is the JournalEntryPage; the QE flag is stored on the page (fall back to
+        //the parent JournalEntry for legacy single-page journals).
+        const page = app.document;
+        const quickEncounter = QuickEncounter.deserializeFromJournalEntry(page)
+            ?? QuickEncounter.deserializeFromJournalEntry(page?.parent);
+        if (!quickEncounter) {return;}  //not a Quick Encounter page - leave the sheet untouched
+
+        //Avoid duplicating the button if the page re-renders
+        element.querySelector("#QuickEncounterIntro")?.remove();
+
+        const totalXPLine = quickEncounter.renderTotalXPLine();
+        let noMapNoteWarning = null;
+        const qeScene = EncounterNote.getEncounterScene(quickEncounter.journalEntry);
+        if (!qeScene) {
+            noMapNoteWarning = `${game.i18n.localize("QE.AddToCombatTracker.NoMapNote")}`;
+        }
+
+        const qeJournalEntryIntro = await foundry.applications.handlebars.renderTemplate(
+            "modules/quick-encounters/templates/qeJournalEntryIntro.html",
+            {totalXPLine, noMapNoteWarning}
+        );
+
+        //element is a native HTMLElement; inject at the top of the page content (robust fallback chain)
+        const target = element.querySelector(".editor-content")
+            ?? element.querySelector(".journal-page-content")
+            ?? element;
+        target.insertAdjacentHTML("afterbegin", qeJournalEntryIntro);
+
+        const button = element.querySelector('#QuickEncounterIntro button[name="addToCombatTracker"]');
+        if (button) {
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                //No clickedNote here; run() resolves the Map Note via findMapNoteForJE / noMapNoteDialog
+                quickEncounter.run(event);
+            });
         }
     }
 
@@ -2197,6 +2245,8 @@ Hooks.on('closeJournalSheet', async (journalSheet, html) => {
 
 //1.0.4c: Foundry v10.277 - support for multipage Journal
 Hooks.on(`renderJournalPageSheet`, QuickEncounter.onRenderJournalPageSheet )
+//v14: ApplicationV2 page sheets fire renderJournalEntryPageSheet (for every page-sheet subtype)
+Hooks.on("renderJournalEntryPageSheet", QuickEncounter.onRenderJournalEntryPageSheetV14)
 //Don't have to worry about Tutorial (deal with that on close Journal Entry)
 Hooks.on('closeJournalPageSheet', async (journalPageSheet, html) => {
     if (!game.user.isGM) {return;}

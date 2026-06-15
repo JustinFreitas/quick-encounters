@@ -1,6 +1,11 @@
 # RELEASE NOTES
 ## 14
 - Initial support for Foundry v14
+### 14.0.6
+- Restored the in-journal "Run Quick Encounter" button on Foundry v14. The old code injected it from the pre-v13 `renderJournalPageSheet` hook using jQuery and `app.object`, which no longer fire/work for v14's ApplicationV2 journals. A new `renderJournalEntryPageSheet` handler now injects the button (and total-XP line) into the page's native element and runs the encounter on click.
+- Fixed creating a default Map Note throwing on v14 (`canvas.stage.hitArea` is null) by using `canvas.dimensions.rect` for the in-bounds check. This also fixes the no-Map-Note path of the double-click run trigger.
+- Skipped constructing the unused v1 `EncounterNoteConfig` sheet on v14 (its `NoteConfig` base is now ApplicationV2 and would throw).
+- Updated the in-journal button icon to Font Awesome 6 (`fa-solid fa-hand-fist`).
 ### 14.0.5
 - Fixed the module failing to load on Foundry v13/v14: `class Dialog3 extends Dialog` threw at import time because the global `Dialog` was removed (now resolved from `foundry.appv1.api.Dialog`), which had been aborting the whole module and preventing all of its hooks (including the toolbar button) from registering.
 - Fixed an `await` in the non-`async` `displayQEDialog`, a syntax error that also blocked the module from loading.

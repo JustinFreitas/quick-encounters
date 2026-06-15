@@ -144,7 +144,12 @@ export class EncounterNote {
         let newNote = QuickEncounter.isFoundryV8Plus ? await canvas.scene.createEmbeddedDocuments("Note",[noteData]) : await Note.create(noteData);
         //1.0.2c: createEmbeddedDocuments returns an array, and we just want a single element
         if (Array.isArray(newNote)) {newNote = newNote[0];}
-        newNote._sheet = new EncounterNoteConfig(newNote);
+        //The custom note-config sheet is the v1 FormApplication-based EncounterNoteConfig (NoteConfig is
+        //ApplicationV2 in v14, so constructing it positionally would throw). This _sheet is never read, so
+        //skip it on v14 to avoid the error.
+        if (!QuickEncounter.isFoundryV14Plus) {
+            newNote._sheet = new EncounterNoteConfig(newNote);
+        }
         return newNote;
     }
 
@@ -227,8 +232,16 @@ export class EncounterNote {
         } else {return;}
         // Validate the final position is in-bounds
         //1.0.4l: Use canvas.stage.hitArea in v10
-        const hitArea = QuickEncounter.isFoundryV10Plus ? canvas.stage.hitArea : canvas.grid.hitArea;
-        if (hitArea.contains(noteAnchor.x, noteAnchor.y)) {
+        //v14: canvas.stage.hitArea is null; use canvas.dimensions.rect (what core itself uses for bounds checks)
+        let hitArea;
+        if (QuickEncounter.isFoundryV14Plus) {
+            hitArea = canvas.dimensions?.rect;
+        } else if (QuickEncounter.isFoundryV10Plus) {
+            hitArea = canvas.stage.hitArea;
+        } else {
+            hitArea = canvas.grid.hitArea;
+        }
+        if (hitArea?.contains(noteAnchor.x, noteAnchor.y)) {
             // Create a Note; we don't pop-up the Note sheet because we really want this Note to be placed
             //(they can always edit it afterwards)
             qeNote = await EncounterNote.create(quickEncounter, noteAnchor);
