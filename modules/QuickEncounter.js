@@ -1536,7 +1536,7 @@ export class QuickEncounter {
                     }
                 } else {//Foundry 0.7.x
                     //v0.6.7: Call Token.fromActor() which does the merge but also handles wildcard token images
-                    tempToken = await Token.fromActor(actor, tokenData);
+                    tempToken = await foundry.canvas.placeables.Token.fromActor(actor, tokenData);
                     //v0.8.4 toObject() not available in Foundry 0.7.x
                     tokenData = tempToken.data;
                 }                 
@@ -1610,7 +1610,7 @@ export class QuickEncounter {
         if (QuickEncounter.isFoundryV8Plus) {
             tempCreatedTokens = toCreateCombinedTokensData.length ? await canvas.scene.createEmbeddedDocuments("Token",toCreateCombinedTokensData) : [];
         } else {
-            tempCreatedTokens = toCreateCombinedTokensData.length ? await Token.create(toCreateCombinedTokensData,{hidden: isHidden}) : [];
+            tempCreatedTokens = toCreateCombinedTokensData.length ? await foundry.canvas.placeables.Token.create(toCreateCombinedTokensData,{hidden: isHidden}) : [];
         }
 
         //And Token.create unfortunately returns an element, not an array if you pass a length=1 array
