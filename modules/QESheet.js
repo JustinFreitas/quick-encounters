@@ -1,4 +1,5 @@
 import {QuickEncounter, dieRollReg, QE} from './QuickEncounter.js';
+import {NamedGroups} from './NamedGroups.js';
 
 /*
 Reused as EncounterCompanionSheet
@@ -49,6 +50,8 @@ export class QESheet extends HandlebarsApplicationMixin(ApplicationV2) {
         },
         actions: {
             addToCombatTracker: QESheet.#onRun,
+            runAsGrouping: QESheet.#onRunAsGrouping,
+            saveNamedGroup: QESheet.#onSaveNamedGroup,
             addTokensTiles: QESheet.#onAddTokensTiles,
             removeActor: QESheet.#onRemoveActor,
             removeTile: QESheet.#onRemoveTile,
@@ -84,6 +87,34 @@ export class QESheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (this.object?.isFromCompendium) {return;}
         await this.submit();
         await this.object?.run(event);
+    }
+
+    //"Run as Grouping": place the tokens without starting combat (friendly party / allied NPCs / mixed).
+    //Token dispositions are untouched; this just skips Combat creation and initiative.
+    static async #onRunAsGrouping(event, target) {
+        if (this.object?.isFromCompendium) {return;}
+        await this.submit();
+        await this.object?.run(event, {runAsGrouping: true});
+    }
+
+    //"Save as Named Group": snapshot this encounter's actors into a reusable, scene-independent
+    //named group (Stage B). Prompts for a name; overwrites an existing group of the same name.
+    static async #onSaveNamedGroup(event, target) {
+        if (this.object?.isFromCompendium) {return;}
+        await this.submit();    //fold in any pending edits to counts/checkboxes first
+        const DialogV2 = foundry.applications?.api?.DialogV2;
+        const suggested = this.options?.title ?? "";
+        const groupName = await DialogV2.prompt({
+            window: {title: game.i18n.localize("QE.NamedGroups.Save.TITLE")},
+            content: `<p>${game.i18n.localize("QE.NamedGroups.Save.PROMPT")}</p>`
+                + `<input type="text" name="groupName" value="${foundry.utils.escapeHTML?.(suggested) ?? ""}" autofocus>`,
+            ok: {
+                label: game.i18n.localize("QE.NamedGroups.Save.OK"),
+                callback: (ev, button) => button.form.elements.groupName.value
+            }
+        });
+        if (groupName == null) {return;}    //cancelled
+        await NamedGroups.saveGroupFromQE(groupName, this.object);
     }
 
     //"Add tokens/tiles": save edits then add the selected canvas tokens/tiles to this QE

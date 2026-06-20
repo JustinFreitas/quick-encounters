@@ -1,0 +1,23 @@
+<div class="quick-encounters named-groups-picker">
+    {{#if hasGroups}}
+        <p>{{localize 'QE.NamedGroups.Picker.INTRO'}}</p>
+        <div class="flexcol">
+            {{#each groups}}
+                <div class="flexrow vertical-centered named-group-row" style="gap:0.5em; margin-bottom:0.25em;">
+                    <span class="named-group-name" style="flex:1;">
+                        <strong>{{this.groupName}}</strong>
+                        <span class="named-group-count">({{this.count}})</span>
+                    </span>
+                    <button type="button" data-qe-action="place" data-group-id="{{this.id}}" title="{{localize 'QE.NamedGroups.Picker.PLACE.TITLE'}}">
+                        <i class="fa-solid fa-users"></i> {{localize 'QE.NamedGroups.Picker.PLACE.BUTTON'}}
+                    </button>
+                    <button type="button" data-qe-action="delete" data-group-id="{{this.id}}" title="{{localize 'QE.NamedGroups.Picker.DELETE.TITLE'}}">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            {{/each}}
+        </div>
+    {{else}}
+        <p>{{localize 'QE.NamedGroups.Picker.EMPTY'}}</p>
+    {{/if}}
+</div>

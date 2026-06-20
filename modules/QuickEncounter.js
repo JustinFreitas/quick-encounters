@@ -268,6 +268,7 @@
 
 import {EncounterNote} from './EncounterNote.js';
 import {QESheet} from './QESheet.js';
+import {NamedGroups} from './NamedGroups.js';
 
 export const QE = {
     MODULE_NAME : "quick-encounters",
@@ -515,6 +516,9 @@ export class QuickEncounter {
             default: "no"
         });
 
+        //v14.1.0 Stage B: world setting holding reusable named groups (managed via our own picker UI)
+        NamedGroups.registerSetting();
+
         //0.6.13 Initialize which Note you are hovering over
         QuickEncounter.hoveredNote = null;
 
@@ -576,6 +580,28 @@ export class QuickEncounter {
 
         addLinkEncounterTool(findControl("token", "tokens"));
         addLinkEncounterTool(findControl("tiles", "tile"));
+
+        //v14.1.0 Stage B: tool to open the reusable Named Groups picker (token controls only)
+        const addNamedGroupsTool = (control) => {
+            if (!control) {return;}
+            const tool = {
+                name: "namedGroups",
+                title: game.i18n.localize("QE.NamedGroups.Picker.TITLE"),
+                icon: "fa-solid fa-users",
+                toggle: false,
+                button: true,
+                visible: game.user.isGM
+            };
+            if (Array.isArray(control.tools)) {
+                tool.onClick = () => NamedGroups.openPicker();
+                control.tools.push(tool);
+            } else {
+                tool.order = Object.keys(control.tools).length;
+                tool.onChange = () => NamedGroups.openPicker();
+                control.tools[tool.name] = tool;
+            }
+        };
+        addNamedGroupsTool(findControl("token", "tokens"));
     }
 
 
@@ -1317,17 +1343,25 @@ export class QuickEncounter {
         //Now create the Tokens
         //v0.6.1 If you used Alt-[Run] then pass that
         //v0.6.8 Make createTokens an instance method because it reference extractedActors
+        //v14.1.0 Stage B: a deliberately-placed named group should appear visible (like Ctrl-Run),
+        //since the GM is dropping known allies/NPCs, not hiding a surprise encounter.
         const tokenOptions = {
-            alt : event?.altKey, 
-            ctrl: event?.ctrlKey
+            alt : event?.altKey,
+            ctrl: event?.ctrlKey || options?.forceVisible
         }
         //0.9.3d: encounterTokens is both created tokens and existing tokens left and not deleted (1.2.0d: including possibly player tokens )
         const encounterTokens = await this.createTokens(tokenOptions);
 
         //And add them to the Combat Tracker (wait 200ms for drawing to finish)
-        setTimeout(() => {
-            QuickEncounter.createCombat(encounterTokens);
-        },200);
+        //Stage A (friendly groupings): runAsGrouping (from the sheet's "no combat" checkbox, or
+        //passed in options) drops the tokens without starting combat. createCombat also self-guards
+        //when no token is flagged, but skip the call (and its timeout) outright when grouping.
+        const runAsGrouping = options?.runAsGrouping ?? this.runAsGrouping ?? false;
+        if (!runAsGrouping) {
+            setTimeout(() => {
+                QuickEncounter.createCombat(encounterTokens);
+            },200);
+        }
 
         if (savedTilesData) {
             //1.1.5c Switch back to single activation of Tiles layer
@@ -1704,6 +1738,10 @@ export class QuickEncounter {
 
     static async createCombat(encounterTokens) {
         if (!encounterTokens || !encounterTokens.length) {return;}
+        //Stage A (friendly groupings): If no token is flagged for the Combat Tracker, this is a
+        //pure grouping drop (e.g. a friendly party or allied NPCs) - skip combat entirely so we
+        //don't start a Combat, roll initiative, or flicker token control. Disposition is untouched.
+        if (!encounterTokens.some(t => t.addToCombatTracker)) {return;}
         const tabApp = ui.combat;
 
         if (QuickEncounter.isFoundryV12Plus) {
