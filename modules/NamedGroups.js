@@ -22,6 +22,9 @@ from the stored data and run with { isInstantEncounter:true, qeAnchor, runAsGrou
 
 export const NAMED_GROUPS_SETTING = "namedGroups";
 
+//Drag data `type` used when dragging a group row from the picker onto the canvas (B2).
+export const NAMED_GROUP_DRAG_TYPE = "quick-encounters.namedGroup";
+
 export class NamedGroups {
 
     static registerSetting() {
@@ -30,6 +33,19 @@ export class NamedGroups {
             config: false,          //managed through our own picker UI, not the Settings menu
             type: Array,
             default: []
+        });
+    }
+
+    //B2: register the canvas-drop hook so a group dragged from the picker is placed at the exact
+    //drop point. Foundry's canvas #onDrop parses our drag data, converts the cursor to scene
+    //coordinates (data.x/data.y), then calls this hook; returning false suppresses default handling.
+    static registerHooks() {
+        Hooks.on("dropCanvasData", (canvas, data) => {
+            if (data?.type !== NAMED_GROUP_DRAG_TYPE) {return;}      //not ours - let Foundry handle it
+            if (!game.user?.isGM || !data.id) {return false;}
+            //data.x/data.y are already in scene coordinates at the cursor
+            NamedGroups.placeGroup(data.id, {anchor: {x: Math.round(data.x), y: Math.round(data.y)}});
+            return false;   //we handled it
         });
     }
 
@@ -169,6 +185,14 @@ export class NamedGroups {
             rejectClose: false,
             render: (event, dlg) => {
                 const root = dlg.element;
+                //B2: make each row draggable onto the canvas (drop handled by the dropCanvasData hook)
+                root.querySelectorAll('[data-qe-draggable="group"]').forEach(row => {
+                    row.addEventListener("dragstart", (ev) => {
+                        const id = ev.currentTarget.dataset.groupId;
+                        ev.dataTransfer.setData("text/plain", JSON.stringify({type: NAMED_GROUP_DRAG_TYPE, id}));
+                        ev.dataTransfer.effectAllowed = "copy";
+                    });
+                });
                 root.querySelectorAll('[data-qe-action="place"]').forEach(btn => {
                     btn.addEventListener("click", async (ev) => {
                         ev.preventDefault();

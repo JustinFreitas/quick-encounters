@@ -518,6 +518,8 @@ export class QuickEncounter {
 
         //v14.1.0 Stage B: world setting holding reusable named groups (managed via our own picker UI)
         NamedGroups.registerSetting();
+        //Stage B2: canvas drop hook so a group can be dragged from the picker to an exact spot
+        NamedGroups.registerHooks();
 
         //0.6.13 Initialize which Note you are hovering over
         QuickEncounter.hoveredNote = null;
