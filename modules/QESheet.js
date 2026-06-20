@@ -49,6 +49,7 @@ export class QESheet extends HandlebarsApplicationMixin(ApplicationV2) {
         },
         actions: {
             addToCombatTracker: QESheet.#onRun,
+            runAsGrouping: QESheet.#onRunAsGrouping,
             addTokensTiles: QESheet.#onAddTokensTiles,
             removeActor: QESheet.#onRemoveActor,
             removeTile: QESheet.#onRemoveTile,
@@ -84,6 +85,14 @@ export class QESheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (this.object?.isFromCompendium) {return;}
         await this.submit();
         await this.object?.run(event);
+    }
+
+    //"Run as Grouping": place the tokens without starting combat (friendly party / allied NPCs / mixed).
+    //Token dispositions are untouched; this just skips Combat creation and initiative.
+    static async #onRunAsGrouping(event, target) {
+        if (this.object?.isFromCompendium) {return;}
+        await this.submit();
+        await this.object?.run(event, {runAsGrouping: true});
     }
 
     //"Add tokens/tiles": save edits then add the selected canvas tokens/tiles to this QE

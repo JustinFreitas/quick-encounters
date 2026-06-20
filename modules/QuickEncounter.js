@@ -1325,9 +1325,15 @@ export class QuickEncounter {
         const encounterTokens = await this.createTokens(tokenOptions);
 
         //And add them to the Combat Tracker (wait 200ms for drawing to finish)
-        setTimeout(() => {
-            QuickEncounter.createCombat(encounterTokens);
-        },200);
+        //Stage A (friendly groupings): runAsGrouping (from the sheet's "no combat" checkbox, or
+        //passed in options) drops the tokens without starting combat. createCombat also self-guards
+        //when no token is flagged, but skip the call (and its timeout) outright when grouping.
+        const runAsGrouping = options?.runAsGrouping ?? this.runAsGrouping ?? false;
+        if (!runAsGrouping) {
+            setTimeout(() => {
+                QuickEncounter.createCombat(encounterTokens);
+            },200);
+        }
 
         if (savedTilesData) {
             //1.1.5c Switch back to single activation of Tiles layer
@@ -1704,6 +1710,10 @@ export class QuickEncounter {
 
     static async createCombat(encounterTokens) {
         if (!encounterTokens || !encounterTokens.length) {return;}
+        //Stage A (friendly groupings): If no token is flagged for the Combat Tracker, this is a
+        //pure grouping drop (e.g. a friendly party or allied NPCs) - skip combat entirely so we
+        //don't start a Combat, roll initiative, or flicker token control. Disposition is untouched.
+        if (!encounterTokens.some(t => t.addToCombatTracker)) {return;}
         const tabApp = ui.combat;
 
         if (QuickEncounter.isFoundryV12Plus) {

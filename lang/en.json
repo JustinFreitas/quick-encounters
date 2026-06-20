@@ -61,6 +61,8 @@
   "QE.QuickEncounterDialog.INTRO_COMPENDIUM" : "To edit, place tokens, or run this Quick Encounter, first import the Journal Entry from the Compendium",
   "QE.QuickEncounterDialog.Save.BUTTON" : "Update",
   "QE.QuickEncounterDialog.Run.BUTTON" : "Run QE",
+  "QE.QuickEncounterDialog.RunAsGrouping.BUTTON" : "Run as Grouping",
+  "QE.QuickEncounterDialog.RunAsGrouping.TITLE" : "Place these tokens without starting combat (for a friendly party, allied NPCs, or a mixed group). Token dispositions are unchanged.",
   "QE.QuickEncounterDialog.Add.BUTTON" : "Add tokens/tiles",
   "QE.QuickEncounterDialog.PS" : "<p><i>This is the new Quick Encounters dialog. Uncheck </i><strong>Use new Quick Encounter dialog</strong><i> in Settings if you want to switch back.</i></p>",
   "QE.QuickEncounterDialog.InvalidNumActors.WARNING" : "Enter blank, a positive integer, or a die roll (for example, 2d6+5); you entered an invalid number: ",
