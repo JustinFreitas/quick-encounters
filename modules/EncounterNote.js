@@ -94,7 +94,7 @@ Object.assign(CONFIG.JournalEntry.noteIcons, moreNoteIcons);
 
 
 
-export class EncounterNoteConfig extends NoteConfig {
+export class EncounterNoteConfig extends (foundry.applications.sheets.NoteConfig ?? NoteConfig) {
     /** @override  */
     //WARNING: Do not add submitOnClose=true because that will create a submit loop
     static get defaultOptions() {
