@@ -270,9 +270,12 @@ import {EncounterNote} from './EncounterNote.js';
 import {QESheet} from './QESheet.js';
 import {NamedGroups} from './NamedGroups.js';
 
+const duplicate = foundry.utils?.duplicate ?? globalThis.duplicate;
+const mergeObject = foundry.utils?.mergeObject ?? globalThis.mergeObject;
+
 export const QE = {
     MODULE_NAME : "quick-encounters",
-    MODULE_VERSION : "12.1.1",
+    MODULE_VERSION : "14.1.4",
     TOKENS_FLAG_KEY : "tokens",
     QE_JSON_FLAG_KEY : "quickEncounter",
     ACTOR : "Actor"
@@ -359,12 +362,7 @@ export class QuickEncounter {
         let qeJSON = journalEntry?.getFlag(QE.MODULE_NAME, QE.QE_JSON_FLAG_KEY);
         if (qeJSON) try {
             const quickEncounterFromData = JSON.parse(qeJSON);
-            //1.2.3d: Replace v12 mergeObject with foundry.utils version
-            if (QuickEncounter.isFoundryV12Plus) {
-                quickEncounter = foundry.utils.mergeObject(quickEncounter, quickEncounterFromData); 
-            } else {
-                quickEncounter = mergeObject(quickEncounter, quickEncounterFromData);
-            }
+            quickEncounter = mergeObject(quickEncounter, quickEncounterFromData);
             //v0.6.1: Backwards compatibility - set the isSavedToken flag
             quickEncounter.extractedActors?.forEach(eActor => {
                 eActor.savedTokensData?.forEach(td => {td.isSavedToken = true;});
@@ -385,12 +383,7 @@ export class QuickEncounter {
         return quickEncounter;
     }
     update(newQEData) {
-        //1.2.3d: Replace v12 mergeObject with foundry.utils version
-        if (QuickEncounter.isFoundryV12Plus) {
-            foundry.utils.mergeObject(this, newQEData);
-        } else {
-            mergeObject(this, newQEData);
-        }
+        mergeObject(this, newQEData);
         //Update into Journal Entry
         this.serializeIntoJournalEntry();
     }
@@ -452,7 +445,7 @@ export class QuickEncounter {
             hint: "QE.DisplayXPAfterCombat.HINT",
             scope: "world",
             config: true,
-            visible: game.system.id === "dnd5e",
+            visible: ["dnd5e", "ose"].includes(game.system.id),
             default: true,
             type: Boolean
         });
@@ -737,15 +730,32 @@ export class QuickEncounter {
                 });
             } else if (controlledFriendlyTokens?.length) {
                 //Check whether you meant to add friendly tokens
-                BaseDialog.confirm({
-                  title: game.i18n.localize("QE.IncludeFriendlies.TITLE"),
-                  content: game.i18n.localize("QE.IncludeFriendlies.CONTENT"),
-                  yes: () => {QuickEncounter.createFrom(controlledAssets)},
-                  no: () => {
-                      controlledAssets.tokens = controlledNonFriendlyTokens;
-                      if (controlledNonFriendlyTokens?.length) {QuickEncounter.createFrom(controlledAssets);}
-                  }
-                });
+                const DialogClass = globalThis.DialogV2 || foundry?.applications?.api?.DialogV2;
+                if (DialogClass) {
+                    DialogClass.confirm({
+                        window: { title: game.i18n.localize("QE.IncludeFriendlies.TITLE") },
+                        content: game.i18n.localize("QE.IncludeFriendlies.CONTENT"),
+                        classes: ["ose", "dialog"],
+                        position: { width: 400, height: "auto" }
+                    }).then(confirmed => {
+                        if (confirmed) {
+                            QuickEncounter.createFrom(controlledAssets);
+                        } else {
+                            controlledAssets.tokens = controlledNonFriendlyTokens;
+                            if (controlledNonFriendlyTokens?.length) {QuickEncounter.createFrom(controlledAssets);}
+                        }
+                    });
+                } else {
+                    BaseDialog.confirm({
+                      title: game.i18n.localize("QE.IncludeFriendlies.TITLE"),
+                      content: game.i18n.localize("QE.IncludeFriendlies.CONTENT"),
+                      yes: () => {QuickEncounter.createFrom(controlledAssets)},
+                      no: () => {
+                          controlledAssets.tokens = controlledNonFriendlyTokens;
+                          if (controlledNonFriendlyTokens?.length) {QuickEncounter.createFrom(controlledAssets);}
+                      }
+                    });
+                }
             } else {
                 QuickEncounter.createFrom(controlledAssets);
             }
@@ -897,7 +907,7 @@ export class QuickEncounter {
             controlledTokensData = controlledTokens.map(ct => { return ct.data});
         }
         //TODO: Is this necessary, or could we just remove controlledTokensData?
-        const newSavedTokensData = QuickEncounter.isFoundryV12Plus ? foundry.utils.duplicate(controlledTokensData) : duplicate(controlledTokensData);
+        const newSavedTokensData = duplicate(controlledTokensData);
 
         //Find set of distinct actors - some/all of these may be new if the addTokens is being called from create
         let tokenActorIds = new Set();
@@ -991,7 +1001,7 @@ export class QuickEncounter {
         });
 
         if (!this.savedTilesData) {this.savedTilesData = [];}
-        this.savedTilesData = this.savedTilesData.concat(QuickEncounter.isFoundryV12Plus ? foundry.utils.duplicate(controlledTilesData) : duplicate(controlledTilessData));
+        this.savedTilesData = this.savedTilesData.concat(duplicate(controlledTilesData));
 
         //Delete the existing tokens (because they will be replaced)
         const controlledTilesIds = controlledTiles.map(ct => {return ct.id});
@@ -1309,9 +1319,6 @@ export class QuickEncounter {
             }
         }
 
-        //Activate the Token layer and generate Actors and all tokens, and combine with saved tokens
-        canvas.tokens.activate();
-
         //1.1.1 If we have rollTables, then roll them to generate additional extractedActors which we add temporarily 
         // (but only to extractedActors not to the property)
         //1.1.2c Issue #121: Check for rollTables
@@ -1366,29 +1373,7 @@ export class QuickEncounter {
         }
 
         if (savedTilesData) {
-            //1.1.5c Switch back to single activation of Tiles layer
-            if (QuickEncounter.isFoundryV10Plus) {
-                canvas.tiles.activate();
-                await this.createTiles(savedTilesData, shift, options);
-            }
-            else if (QuickEncounter.isFoundryV8Plus) {   
-                //0.8.2b: Activate foreground/background
-                const savedBackgroundTilesData = savedTilesData.filter(std => std.layer === "background");
-                if (savedBackgroundTilesData.length) {
-                    canvas.background.activate();
-                    await this.createTiles(savedBackgroundTilesData, shift, options);
-                }
-                const savedForegroundTilesData = savedTilesData.filter(std => std.layer !== "background");
-                if (savedForegroundTilesData.length) {
-                    canvas.foreground.activate();
-                    await this.createTiles(savedForegroundTilesData, shift, options);
-                }
-            } else {//Foundry 0.7.x
-                canvas.tiles.activate();
-                await this.createTiles(savedTilesData, shift, options);
-            }
-            //0.7.3 Switch back to Basic Controls
-            canvas.tokens.activate();
+            await this.createTiles(savedTilesData, shift, options);
         }
     }
 
@@ -1634,12 +1619,12 @@ export class QuickEncounter {
                 matchingToken.addToCombatTracker = ctd.addToCombatTracker;
                 existingTokens.push(matchingToken);
             } else {
-                toCreateCombinedTokensData.push(QuickEncounter.isFoundryV12Plus ? foundry.utils.duplicate(ctd) : duplicate(ctd));
+                toCreateCombinedTokensData.push(duplicate(ctd));
             }
         }
 
         //We do need to check that toCreateCombinedTokensData is not empty (if everything is already on the Scene)
-        const origCombinedTokensData = QuickEncounter.isFoundryV12Plus ? foundry.utils.duplicate(toCreateCombinedTokensData) : duplicate(toCreateCombinedTokensData);
+        const origCombinedTokensData = duplicate(toCreateCombinedTokensData);
         let tempCreatedTokens;
 
         //0.9.3f: Fix 0.8.0 deprecation warning: call canvas.scene.createEmbeddedDocuments() instead of Token.create()
@@ -1732,7 +1717,7 @@ export class QuickEncounter {
         if (QuickEncounter.isFoundryV8Plus) {
             createdTiles = shiftedTilesData.length ? await canvas.scene.createEmbeddedDocuments("Tile", shiftedTilesData) : [];
         } else {
-            createdTiles = await Tile.create(QuickEncounter.isFoundryV12Plus ? foundry.utils.duplicate(shiftedTilesData) : duplicate(shiftedTilesData));
+            createdTiles = await Tile.create(duplicate(shiftedTilesData));
         }
 
         return createdTiles;
@@ -1874,9 +1859,12 @@ export class QuickEncounter {
 
 
     static getActorXP(actor) {
-        if ((game.system.id !== "dnd5e") || !actor) {return null;}
+        if (!actor || (game.system.id !== "dnd5e" && game.system.id !== "ose")) {return null;}
         try {
             if (QuickEncounter.isFoundryV10Plus) {
+                if (game.system.id === "ose") {
+                    return actor.system?.details?.xp;
+                }
                 return actor.system?.details?.xp?.value;
             } else {
                 return actor.data?.data?.details?.xp?.value;
@@ -1887,7 +1875,7 @@ export class QuickEncounter {
     }
 
     static computeTotalXPFromTokens(tokens) {
-        if ((game.system.id !== "dnd5e") || !tokens) { return; }
+        if (!tokens || (game.system.id !== "dnd5e" && game.system.id !== "ose")) { return; }
         let totalXP = null;
         for (const token of tokens) {
             totalXP += QuickEncounter.getActorXP(token.actor);
@@ -2176,6 +2164,53 @@ export const BaseDialog = (typeof Dialog !== "undefined" && Dialog) || foundry?.
 export class Dialog3 extends BaseDialog {
     //1.0.2: Pass the event through to the button callback
     static async buttons3({title, content, button1cb, button2cb, button3cb, buttonLabels, options={}}) {
+        const DialogClass = globalThis.DialogV2 || foundry?.applications?.api?.DialogV2;
+        if (DialogClass) {
+            const buttons = [
+                {
+                    action: "button1",
+                    label: game.i18n.localize(buttonLabels[0]),
+                    callback: (event, button) => {
+                        return button1cb ? button1cb(null, event) : true;
+                    }
+                },
+                {
+                    action: "button2",
+                    label: game.i18n.localize(buttonLabels[1]),
+                    callback: (event, button) => {
+                        return button2cb ? button2cb(null, event) : false;
+                    }
+                }
+            ];
+            if (button3cb) {
+                buttons.push({
+                    action: "button3",
+                    label: game.i18n.localize(buttonLabels[2]),
+                    callback: (event, button) => {
+                        return button3cb ? button3cb(null, event) : false;
+                    }
+                });
+            }
+            const classes = Array.isArray(options.classes) 
+                ? Array.from(new Set(["ose", "dialog", ...options.classes]))
+                : ["ose", "dialog"];
+            const position = foundry.utils.mergeObject({
+                width: options.width || 400,
+                height: options.height || "auto"
+            }, options.position || {});
+
+            const dialog = new DialogClass({
+                window: {
+                    title: title
+                },
+                content: content,
+                buttons: buttons,
+                classes: classes,
+                position: position
+            });
+            dialog.render(true);
+            return dialog;
+        }
         //Also can function as a generic 2-button dialog by passing button3b=null
         return new Promise((resolve, reject) => {
             const dialog = new this({

@@ -1,7 +1,9 @@
 import {QuickEncounter, QE, Dialog3, BaseDialog} from './QuickEncounter.js';
+
+const mergeObject = foundry.utils?.mergeObject ?? globalThis.mergeObject;
 /*
 Extend the placeable Map Note - select the desired tokens and then tap the Quick Encounters button
-Subsequently can add: (a) Drag additional tokens in, (b) populate the Combat Tracker when you open the note?
+Extends the placeable Map Note - select the desired tokens and then tap the Quick Encounters button
 27-Aug-2020   Created
 30-Aug-2020   Added EncounterNoteConfig
 13-Sep-2020    QuickEncounter.deleteNote moved/renamed to EncounterNote.delete
@@ -45,7 +47,7 @@ Subsequently can add: (a) Drag additional tokens in, (b) populate the Combat Tra
                 Hooks.on('dropCanvasData'): Add check for JournalEntryPage and add common function checkForQEAndCreateNote()
                 create(): Remove check for FoundryV10 and switch to parentJournalEntry
                 Re-clone _onDropData() from foundry.js to account for new Note fields (for JournalEntryPage)
-29-May-2023     1.1.5b: Changed isFoundryV10 to isFoundryV10Plus (to support checks for Foundry V11)    
+29-May-2023     1.1.5b: Changed isFoundryV10 transition to isFoundryV10Plus (to support checks for Foundry V11)    
 21-May-2024     1.2.3d: v12: Switch (optionally) to new foundry.utils.mergeObject()  
 23-May-2024     1.2.3e: class EncounterNote: Move icon and iconTint into texture (supposedly deprecated since v10) 
 17-Jun-2024     12.1.0d:Replace cls.create() with getDocumentClass("cls").create     
@@ -98,17 +100,10 @@ export class EncounterNoteConfig extends (foundry.applications.sheets.NoteConfig
     /** @override  */
     //WARNING: Do not add submitOnClose=true because that will create a submit loop
     static get defaultOptions() {
-        let defaultOptions;
-        const addedOptions = {
+        return mergeObject(super.defaultOptions, {
             id : "encounter-note-config",
-            title : game.i18n.localize( "QE.Config.TITLE")
-        }
-        if (QuickEncounter.isFoundryV12Plus) {
-            defaultOptions = foundry.utils.mergeObject(super.defaultOptions, addedOptions); 
-        } else {
-            defaultOptions = mergeObject(super.defaultOptions, addedOptions);
-        }
-        return defaultOptions;
+            title : game.i18n.localize("QE.Config.TITLE")
+        });
     }
 }
 
@@ -195,6 +190,37 @@ export class EncounterNote {
     }
 
     static dialogPrompt({title, content, label, callback}={}, options={}) {
+        const DialogClass = globalThis.DialogV2 || foundry?.applications?.api?.DialogV2;
+        if (DialogClass) {
+            const classes = Array.isArray(options.classes)
+                ? Array.from(new Set(["ose", "dialog", ...options.classes]))
+                : ["ose", "dialog"];
+            const position = foundry.utils.mergeObject({
+                width: options.width || 400,
+                height: options.height || "auto"
+            }, options.position || {});
+
+            const dialog = new DialogClass({
+                window: {
+                    title: title
+                },
+                content: content,
+                buttons: [
+                    {
+                        action: "close",
+                        label: label,
+                        icon: '<i class="fas fa-check"></i>',
+                        callback: (event, button) => {
+                            if (callback) callback();
+                        }
+                    }
+                ],
+                classes: classes,
+                position: position
+            });
+            dialog.render(true);
+            return Promise.resolve(dialog);
+        }
         return new Promise(resolve => {
           const dialog = new BaseDialog({
             title: title,
@@ -296,6 +322,32 @@ export class EncounterNote {
 
     //1.0.2c: Changed to sync operation (only called if there is no map note when you run)
     static noMapNoteDialog(quickEncounter, event, options) {
+        const DialogClass = globalThis.DialogV2 || foundry?.applications?.api?.DialogV2;
+        if (DialogClass) {
+            DialogClass.confirm({
+                window: { title: game.i18n.localize("QE.NoMapNote.TITLE") },
+                content: game.i18n.localize("QE.NoMapNote.CONTENT"),
+                classes: ["ose", "dialog"],
+                position: { width: 400, height: "auto" }
+            }).then(confirmed => {
+                if (confirmed) {
+                    EncounterNote.place(quickEncounter, {placeDefault : true}).then(() => {
+                        EncounterNote.dialogPrompt({
+                            title: game.i18n.localize("QE.CreatedMapNote.TITLE"),
+                            content: game.i18n.localize("QE.CreatedMapNote.CONTENT"),
+                            label: "",
+                            options: {
+                                top: window.innerHeight - 350,
+                                left: window.innerWidth - 720,
+                                width: 400,
+                                jQuery: false
+                            }
+                        });
+                    });
+                }
+            });
+            return true;
+        }
         BaseDialog.confirm({
             title: game.i18n.localize("QE.NoMapNote.TITLE"),
             content : game.i18n.localize("QE.NoMapNote.CONTENT"),
@@ -339,14 +391,24 @@ export class EncounterNote {
         } else {
             content = game.i18n.localize("QE.SwitchScene.CONTENT") + qeScene.name + "?";
         }
-        await BaseDialog.confirm({
-            title: game.i18n.localize("QE.SwitchScene.TITLE"),
-            content : content,
-            //0.5.0 Need the Yes response to wait until we are in the correct scene (so don't make it async)
-            //and in particular, the Journal Note has been drawn
-            yes : () => {shouldSwitch = true},
-            no : () => {shouldSwitch = false}
-        });
+        const DialogClass = globalThis.DialogV2 || foundry?.applications?.api?.DialogV2;
+        if (DialogClass) {
+            shouldSwitch = await DialogClass.confirm({
+                window: { title: game.i18n.localize("QE.SwitchScene.TITLE") },
+                content: content,
+                classes: ["ose", "dialog"],
+                position: { width: 400, height: "auto" }
+            });
+        } else {
+            await BaseDialog.confirm({
+                title: game.i18n.localize("QE.SwitchScene.TITLE"),
+                content : content,
+                //0.5.0 Need the Yes response to wait until we are in the correct scene (so don't make it async)
+                //and in particular, the Journal Note has been drawn
+                yes : () => {shouldSwitch = true},
+                no : () => {shouldSwitch = false}
+            });
+        }
         if (shouldSwitch) {return EncounterNote.switchToMapNoteScene(qeScene, parentJournalEntry);}
         else {return false;}
     }
