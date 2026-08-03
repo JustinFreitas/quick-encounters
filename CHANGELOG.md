@@ -1,6 +1,10 @@
 # RELEASE NOTES
 ## 14
 - Initial support for Foundry v14
+### 14.1.5
+- No module code changes. Release-process only: this repo now publishes the same way as the other maintained Foundry modules, via `gh release create <tag> --generate-notes` on a `release: published` workflow, instead of firing on a hand-pushed tag.
+- The release workflow now verifies before it publishes: the tagged commit must be in `gygax75`'s history, its committed version must match the tag, `compatibility.verified` must be at least 13, and every path the manifest declares must exist. The built zip is then re-checked and its contents allowlisted, so repo-only files cannot reach an install.
+- `gygax75` is now the repository's default branch. The legacy `master` branch remains for upstream syncs but is no longer what an untargeted tag lands on.
 ### 14.0.7
 - Restored the QESheet companion popup (combatant list, counts, per-row checkboxes, tiles/rolltables, and the Run / Add tokens-tiles / Update buttons) on Foundry v14 by migrating it from the deprecated v1 FormApplication to ApplicationV2. It is opened/cached/closed from the v14 journal-page render/close hooks. (v14-only; the v10-v13 FormApplication path for this popup is dropped.)
 - Updated the popup template to ApplicationV2 conventions (form-tag root, `data-action` buttons, Font Awesome 6 icons) and replaced the brittle row-removal click detection with `data-action`/`data-row`.
