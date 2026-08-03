@@ -1,42 +1,164 @@
 name: Release Creation
 
+# Standard flow across the maintained Foundry repos: cut a release with
+#   gh release create <tag> --generate-notes
+# (no assets) and this workflow stamps module.json and uploads them. Pushing a
+# bare tag no longer publishes anything.
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Verify, Package & Upload
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Get Version
-        id: get_version
-        run: |
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Update module.json
-        run: |
-          # Update version and download link in module.json
-          sed -i 's/"version": ".*"/"version": "${{ steps.get_version.outputs.version }}"/' module.json
-          sed -i 's|"download": ".*"|"download": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.tag }}/quick-encounters.zip"|' module.json
-
-      - name: Zip Module
-        run: |
-          zip -r ./quick-encounters.zip . -x ".git/*" ".github/*" ".gitignore" ".gitattributes" ".DS_Store" "TESTING.md" "TODO"
-
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v3
+      # fetch-depth: 0 so the gygax75 ancestry check below has real history.
+      - name: Checkout the release tag
+        uses: actions/checkout@v5
         with:
-          files: |
-            module.json
-            quick-encounters.zip
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          make_latest: true
-          generate_release_notes: true
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      # The release tag is the source of truth for the version.
+      # Strip a leading "v" if present (e.g. v14.1.4 -> 14.1.4).
+      - name: Resolve version from tag
+        id: vars
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release version: $version"
+
+      # This repo carries a legacy `master` branch ~29 commits behind `gygax75`,
+      # still at 12.1.1 / compatibility.verified 12. A tag cut there would publish
+      # a V12 module over a working V14 install — exactly how ready-check v14.0.1
+      # shipped 2023 code behind a V14 manifest. Fail loudly instead.
+      #
+      # Two complementary checks, because neither covers the other:
+      #   - ancestry catches a tag from a DIVERGENT branch (one never merged into
+      #     gygax75). It does NOT catch `master`, which is a strict ancestor of
+      #     gygax75 and so passes this check.
+      #   - the version and compatibility checks catch a tag from a STALE point,
+      #     which is what `master` actually is. They are the ones that stop it.
+      - name: Verify the tagged commit is release-worthy
+        env:
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          git fetch --no-tags --quiet origin gygax75
+          git merge-base --is-ancestor HEAD origin/gygax75 || \
+            fail "Tagged commit $(git rev-parse --short HEAD) is not in gygax75's history. Releases must come from gygax75."
+
+          # A committed version that disagrees with the tag usually means the tag
+          # landed on the wrong commit. This is what rejects a tag cut on master.
+          committed=$(node -p 'require("./module.json").version')
+          [ "$committed" = "$VERSION" ] || \
+            fail "module.json version ($committed) != tag ($VERSION). Tagged the wrong commit, or forgot to bump."
+
+          # Content-level guard against pre-V13 code wearing a current manifest.
+          verified=$(node -p 'String(require("./module.json").compatibility?.verified ?? "")')
+          case "$verified" in
+            ''|*[!0-9]*) fail "module.json compatibility.verified is not a plain number: '$verified'." ;;
+          esac
+          [ "$verified" -ge 13 ] || \
+            fail "module.json compatibility.verified is $verified; expected >= 13. This looks like pre-V13 code."
+
+          # Every file the manifest promises Foundry must exist. Declared paths
+          # only — modules/NamedGroups.js is imported, not declared.
+          node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("module.json", "utf8"));
+            const styles = (m.styles ?? []).map((s) => (typeof s === "string" ? s : s.src));
+            const langs = (m.languages ?? []).map((l) => l.path);
+            const missing = [...(m.esmodules ?? []), ...styles, ...langs].filter((p) => !fs.existsSync(p));
+            if (missing.length) {
+              console.log(`::error::module.json declares files that do not exist: ${missing.join(", ")}`);
+              process.exit(1);
+            }
+          '
+
+          echo "Verified: $(git rev-parse --short HEAD) is on gygax75, version $VERSION, compatibility.verified $verified."
+
+      - name: Stamp module.json (version, url, manifest, download)
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const repo = process.env.REPO;            // owner/name
+          const tag = process.env.TAG;              // release tag
+          const version = process.env.VERSION;      // tag without leading v
+          const m = JSON.parse(fs.readFileSync('module.json', 'utf8'));
+          m.version = version;
+          m.url = `https://github.com/${repo}`;
+          // Stable URL so Foundry can detect future updates.
+          m.manifest = `https://github.com/${repo}/releases/latest/download/module.json`;
+          // Versioned asset for this specific release.
+          m.download = `https://github.com/${repo}/releases/download/${tag}/quick-encounters.zip`;
+          fs.writeFileSync('module.json', JSON.stringify(m, null, 2) + '\n');
+          console.log(`Stamped module.json: version=${version}`);
+          console.log(`  manifest=${m.manifest}`);
+          console.log(`  download=${m.download}`);
+          NODE
+
+      - name: Package module zip
+        run: |
+          set -euo pipefail
+          zip -r ./quick-encounters.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x ".gitignore" \
+            -x ".gitattributes" \
+            -x ".DS_Store" \
+            -x "TESTING.md" \
+            -x "TODO" \
+            -x "*.zip"
+
+      # Verify the artifact itself, not the tree it came from. A green job is not
+      # evidence the bytes are right: in ready-check a presence-only check passed
+      # while the zip was silently shipping .github/ to every install.
+      - name: Verify built zip
+        env:
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          unzip -l quick-encounters.zip
+
+          for f in module.json modules/QuickEncounter.js css/quick-encounters.css lang/en.json LICENSE; do
+            unzip -l quick-encounters.zip "$f" >/dev/null 2>&1 || \
+              fail "quick-encounters.zip is missing $f (files must sit at the archive root)."
+          done
+
+          zipped=$(unzip -p quick-encounters.zip module.json | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version')
+          [ "$zipped" = "$VERSION" ] || fail "zip module.json version ($zipped) != tag ($VERSION)."
+
+          # Allowlist the archive root so repo-only additions cannot quietly ship
+          # to every Foundry install. Anything new needs an exclusion above or an
+          # entry here.
+          unexpected=$(unzip -Z1 quick-encounters.zip | awk -F/ 'NF && $1 != "" {print $1}' | sort -u \
+            | grep -vxE 'CHANGELOG\.md|LICENSE|README\.md|css|img|lang|module\.json|modules|templates' || true)
+          if [ -n "$unexpected" ]; then
+            fail "quick-encounters.zip has unexpected root entries: $(echo "$unexpected" | tr '\n' ' ')"
+          fi
+
+          echo "quick-encounters.zip verified for $VERSION."
+
+      # `gh release upload` never moves the "latest" pointer, so prerelease test
+      # runs cannot displace the version Foundry is polling for.
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release upload "$TAG" module.json quick-encounters.zip --clobber
