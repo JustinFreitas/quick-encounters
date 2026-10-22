@@ -106,6 +106,8 @@ export class QESheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const suggested = this.options?.title ?? "";
         const groupName = await DialogV2.prompt({
             window: {title: game.i18n.localize("QE.NamedGroups.Save.TITLE")},
+            classes: ["dialog"],
+            position: { width: 380, height: "auto" },
             content: `<p>${game.i18n.localize("QE.NamedGroups.Save.PROMPT")}</p>`
                 + `<input type="text" name="groupName" value="${foundry.utils.escapeHTML?.(suggested) ?? ""}" autofocus>`,
             ok: {

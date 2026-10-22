@@ -180,6 +180,8 @@ export class NamedGroups {
         //`render` option, which is where we attach the per-row Place/Delete listeners.
         await DialogV2.wait({
             window: {title: game.i18n.localize("QE.NamedGroups.Picker.TITLE")},
+            classes: ["dialog"],
+            position: { width: 420, height: "auto" },
             content,
             buttons: [{action: "close", label: game.i18n.localize("QE.NamedGroups.Picker.CLOSE"), default: true}],
             rejectClose: false,
@@ -208,6 +210,8 @@ export class NamedGroups {
                         const group = NamedGroups.getGroup(id);
                         const confirmed = await DialogV2.confirm({
                             window: {title: game.i18n.localize("QE.NamedGroups.Picker.TITLE")},
+                            classes: ["dialog"],
+                            position: { width: 380, height: "auto" },
                             content: `<p>${game.i18n.format("QE.NamedGroups.ConfirmDelete.PROMPT", {groupName: group?.groupName ?? ""})}</p>`
                         });
                         if (confirmed) {
