@@ -93,3 +93,49 @@
     text-align: center;
     transform: translate(550%, 0%);
 }
+
+
+/* ----------------------------------------- */
+/*  QESheet Responsive Action Buttons        */
+/* ----------------------------------------- */
+.qe-sheet .window-content .qe-sheet-buttons,
+.qe-sheet .window-content .flexrow:has(button[data-action="addToCombatTracker"]) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.qe-sheet .window-content button {
+    min-height: var(--button-size, 28px);
+    height: auto;
+    line-height: normal;
+    padding: 4px 8px;
+    white-space: normal;
+    flex: 1 1 calc(33.333% - 6px);
+}
+
+/* ----------------------------------------- */
+/*  Named Groups Picker Bounded Scroll       */
+/* ----------------------------------------- */
+.named-groups-picker .named-groups-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-top: 4px;
+}
+
+.named-groups-picker .named-group-row .named-group-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.named-groups-picker .named-group-row button {
+    min-height: var(--button-size, 26px);
+    height: auto;
+    line-height: normal;
+    padding: 3px 8px;
+    white-space: nowrap;
+}

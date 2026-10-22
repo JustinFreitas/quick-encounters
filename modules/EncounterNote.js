@@ -209,7 +209,7 @@ export class EncounterNote {
                     {
                         action: "close",
                         label: label,
-                        icon: '<i class="fas fa-check"></i>',
+                        icon: "fa-solid fa-check",
                         callback: (event, button) => {
                             if (callback) callback();
                         }
@@ -227,7 +227,7 @@ export class EncounterNote {
             content: content,
             buttons: {
               close: {
-                icon: '<i class="fas fa-check"></i>',
+                icon: "fa-solid fa-check",
                 label: label,
                 callback: callback
               }

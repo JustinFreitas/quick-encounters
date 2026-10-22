@@ -1,6 +1,11 @@
 # RELEASE NOTES
 ## 14
 - Initial support for Foundry v14
+### 14.1.6
+- Fixed button overflow in QESheet: wrapped bottom action buttons ("Run QE", "Run as Grouping", "Save as Group", "Add tokens/tiles", "Update") into a responsive flex layout with auto-height and padding so multi-line button labels never spill over button borders.
+- Fixed DialogV2 icon rendering in `EncounterNote.dialogPrompt`: passed Font Awesome class string (`"fa-solid fa-check"`) instead of HTML string.
+- Added bounded height and scrollable body (`max-height: 360px; overflow-y: auto`) to Named Groups Picker to prevent vertical overflow on screens with many saved groups.
+- Added text truncation protection to `.named-group-name` to prevent long names from pushing action buttons off-screen.
 ### 14.1.5
 - No module code changes. Release-process only: this repo now publishes the same way as the other maintained Foundry modules, via `gh release create <tag> --generate-notes` on a `release: published` workflow, instead of firing on a hand-pushed tag.
 - The release workflow now verifies before it publishes: the tagged commit must be in `gygax75`'s history, its committed version must match the tag, `compatibility.verified` must be at least 13, and every path the manifest declares must exist. The built zip is then re-checked and its contents allowlisted, so repo-only files cannot reach an install.

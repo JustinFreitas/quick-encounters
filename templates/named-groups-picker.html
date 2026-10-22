@@ -1,11 +1,11 @@
 <div class="quick-encounters named-groups-picker">
     {{#if hasGroups}}
         <p>{{localize 'QE.NamedGroups.Picker.INTRO'}}</p>
-        <div class="flexcol">
+        <div class="flexcol named-groups-list">
             {{#each groups}}
                 <div class="flexrow vertical-centered named-group-row" draggable="true" data-qe-draggable="group" data-group-id="{{this.id}}" title="{{localize 'QE.NamedGroups.Picker.DRAG.TITLE'}}" style="gap:0.5em; margin-bottom:0.25em; cursor:grab;">
                     <i class="fa-solid fa-grip-vertical" style="opacity:0.6;"></i>
-                    <span class="named-group-name" style="flex:1;">
+                    <span class="named-group-name" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                         <strong>{{this.groupName}}</strong>
                         <span class="named-group-count">({{this.count}})</span>
                     </span>

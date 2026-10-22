@@ -8,7 +8,7 @@
       "name": "Spetzel"
     }
   ],
-  "version": "14.1.5",
+  "version": "14.1.6",
   "minimumCoreVersion": "10",
   "compatibleCoreVersion": "14",
   "compatibility": {
@@ -62,6 +62,6 @@
   "bugs": "https://github.com/JustinFreitas/quick-encounters/issues",
   "changelog": "https://github.com/JustinFreitas/quick-encounters/blob/gygax75/CHANGELOG.md",
   "manifest": "https://github.com/JustinFreitas/quick-encounters/releases/latest/download/module.json",
-  "download": "https://github.com/JustinFreitas/quick-encounters/releases/download/v14.1.5/quick-encounters.zip",
+  "download": "https://github.com/JustinFreitas/quick-encounters/releases/download/v14.1.6/quick-encounters.zip",
   "url": "https://github.com/JustinFreitas/quick-encounters"
 }
